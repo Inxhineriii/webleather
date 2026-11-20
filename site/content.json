@@ -1,0 +1,229 @@
+{
+  "site": {
+    "igUrl": "https://ig.me/m/mariol.digital",
+    "waNumber": "355697200543"
+  },
+  "hero": {
+    "lead": "High-converting websites and 24/7 AI chatbots that answer, qualify and book — so your business sells while you sleep.",
+    "cta": "Book a Free Consultation"
+  },
+  "websites": {
+    "title": "Premium *Websites*",
+    "copy": "Fast, bespoke web applications & landing pages.",
+    "points": [
+      "Hand-coded — no templates, no bloat",
+      "Mobile-first and built to load instantly",
+      "Every section engineered to convert"
+    ]
+  },
+  "bots": {
+    "title": "24/7 AI *Chatbots*",
+    "copy": "Automated Instagram DM & WhatsApp sales agents that reply instantly."
+  },
+  "portfolio": {
+    "title": "Five niches. *One* conversion playbook.",
+    "copy": "Live demo websites built for different industries. Swipe to explore and tap any card to open it.",
+    "items": [
+      {
+        "title": "Streetwear",
+        "desc": "Product-first storefront with colourways, sizes and a live bag.",
+        "tag": "Live demo",
+        "host": "cozy-speculoos-e1ef55.netlify.app",
+        "url": "https://cozy-speculoos-e1ef55.netlify.app",
+        "img": "img/vektor.jpg"
+      },
+      {
+        "title": "Luxury Fashion",
+        "desc": "Editorial luxury storefront with a full-bleed hero.",
+        "tag": "Replica demo",
+        "host": "sites.google.com/view/cult-gaia",
+        "url": "https://sites.google.com/view/cult-gaia-luxury-store-replica/full-page-embed?pli=1&authuser=0",
+        "img": "img/cultgaia.jpg"
+      },
+      {
+        "title": "Sneakers",
+        "desc": "Immersive 3D-style showroom gallery for luxury sneakers.",
+        "tag": "Live demo",
+        "host": "chipper-selkie-ce6f10.netlify.app",
+        "url": "https://chipper-selkie-ce6f10.netlify.app",
+        "img": "img/aether.jpg"
+      },
+      {
+        "title": "Beauty",
+        "desc": "Mobile-first skincare shop with skin-type filters and search.",
+        "tag": "Live demo",
+        "host": "beauty-skincare-kozmetik.vercel.app",
+        "url": "https://beauty-skincare-kozmetik.vercel.app",
+        "img": "img/blush.jpg"
+      },
+      {
+        "title": "Lighting",
+        "desc": "Dark luxury boutique with an interactive light switch.",
+        "tag": "Live demo",
+        "host": "lighting-store2.vercel.app",
+        "url": "https://lighting-store2.vercel.app",
+        "img": "img/lighting.jpg"
+      }
+    ]
+  },
+  "apps": {
+    "title": "Your menu, *one tap* away.",
+    "copy": "QR and NFC table ordering for restaurants and cafés. Guests tap the table, order from their own phone, and the kitchen sees it instantly. No app to download."
+  },
+  "pricing": {
+    "title": "Choose your *starting point.*",
+    "copy": "Clear project pricing. Every plan is built to turn visitors into customers.",
+    "plans": [
+      {
+        "label": "Launch",
+        "name": "Landing page",
+        "from": "from",
+        "price": "$299",
+        "note": "A single, sharp page built to turn clicks into messages.",
+        "cta": "Choose Launch",
+        "featured": false,
+        "badge": "",
+        "features": [
+          "Custom one-page design",
+          "Mobile-first and fast",
+          "Instagram / WhatsApp contact button",
+          "Basic SEO setup",
+          "1 round of revisions"
+        ],
+        "preset": {
+          "service": "landing",
+          "extras": []
+        }
+      },
+      {
+        "label": "Growth",
+        "name": "Website + AI chatbot",
+        "from": "from",
+        "price": "$799",
+        "note": "A multi-page site with a 24/7 bot answering your DMs.",
+        "cta": "Get started",
+        "featured": true,
+        "badge": "Most popular",
+        "features": [
+          "Up to 5 custom pages",
+          "AI chatbot on Instagram DM or WhatsApp",
+          "Lead capture & instant replies",
+          "Conversion tracking",
+          "2 rounds of revisions"
+        ],
+        "preset": {
+          "service": "website",
+          "extras": [
+            "chatbot"
+          ]
+        }
+      },
+      {
+        "label": "Automate",
+        "name": "Full sales system",
+        "from": "from",
+        "price": "$1,499",
+        "note": "Website, bots and automations working as one system.",
+        "cta": "Choose Automate",
+        "featured": false,
+        "badge": "",
+        "features": [
+          "Everything in Growth",
+          "Chatbot on Instagram and WhatsApp",
+          "Booking, CRM & follow-up automations",
+          "Priority support"
+        ],
+        "preset": {
+          "service": "website",
+          "extras": [
+            "chatbot",
+            "channel",
+            "automations",
+            "support"
+          ]
+        }
+      }
+    ]
+  },
+  "quote": {
+    "title": "Build your *quote.*",
+    "copy": "Pick what you need and watch the estimate update. Send it on WhatsApp and we confirm the final price after a short chat.",
+    "currency": "$",
+    "rushPercent": 20,
+    "services": [
+      {
+        "id": "landing",
+        "label": "Landing page",
+        "desc": "One sharp page that turns clicks into messages.",
+        "price": 299
+      },
+      {
+        "id": "website",
+        "label": "Multi-page website",
+        "desc": "Up to 5 custom pages, mobile-first.",
+        "price": 549
+      },
+      {
+        "id": "shop",
+        "label": "Online shop",
+        "desc": "Catalog, cart and WhatsApp checkout.",
+        "price": 699
+      },
+      {
+        "id": "template",
+        "label": "Ready template",
+        "desc": "One of the live demos, styled to your brand.",
+        "price": 449
+      },
+      {
+        "id": "bot",
+        "label": "AI chatbot only",
+        "desc": "A 24/7 sales bot for Instagram DM or WhatsApp.",
+        "price": 399
+      },
+      {
+        "id": "app",
+        "label": "Web app / SaaS",
+        "desc": "Custom systems like QR/NFC table ordering.",
+        "price": 1499
+      }
+    ],
+    "extras": [
+      {
+        "id": "chatbot",
+        "label": "AI chatbot (Instagram or WhatsApp)",
+        "price": 250
+      },
+      {
+        "id": "channel",
+        "label": "Second bot channel",
+        "price": 150
+      },
+      {
+        "id": "automations",
+        "label": "Booking, CRM & follow-ups",
+        "price": 400
+      },
+      {
+        "id": "admin",
+        "label": "Admin panel",
+        "price": 150
+      },
+      {
+        "id": "lang",
+        "label": "Extra language",
+        "price": 100
+      },
+      {
+        "id": "seo",
+        "label": "SEO & analytics",
+        "price": 100
+      },
+      {
+        "id": "support",
+        "label": "Priority support",
+        "price": 150
+      }
+    ]
+  }
+}

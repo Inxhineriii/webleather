@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Mariol Live Bot Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap">
+<style>
+/* Layout: three-up demo stage. Left = pitch + controls, centre = phone with the bot, right = what the owner's admin panel sees live. Stacks to one column on phones (phone first). */
+:root{
+  --obsidian:#0a0a0f; --panel:rgba(255,255,255,.035); --panel-2:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --ink:rgba(255,255,255,.94); --ink-2:rgba(255,255,255,.66); --ink-3:rgba(255,255,255,.42);
+  --cyan:#00f0ff; --cyan-soft:rgba(0,240,255,.14); --gold:#d4af37; --gold-hi:#f3e2a1; --gold-soft:rgba(212,175,55,.14);
+  --ok:#3ddc97; --warn:#ffb547;
+  --serif:'Cormorant Garamond',Georgia,serif; --sans:'Space Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.22,1,.36,1);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--obsidian);color:var(--ink);font:15px/1.5 var(--sans);padding-block:40px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-x:hidden}
+canvas#dust{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;opacity:.55;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 380px minmax(0,1fr);gap:32px;align-items:start}
+.eyebrow{font:500 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--cyan)}
+h1{font:400 clamp(38px,4.4vw,56px)/1 var(--serif);margin:14px 0 14px;text-wrap:balance}
+h1 em{color:var(--gold-hi);font-style:italic}
+.lede{color:var(--ink-2);margin:0 0 26px;max-width:44ch}
+.glass{background:var(--panel);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.ctl{padding:18px;display:flex;flex-direction:column;gap:18px}
+.ctl label.k{font:500 10.5px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:9px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{font:500 13px/1 var(--sans);color:var(--ink-2);background:transparent;border:1px solid var(--line-2);border-radius:999px;padding:9px 13px;cursor:pointer;transition:all .25s var(--ease)}
+.seg button:hover{color:var(--ink);border-color:rgba(255,255,255,.3)}
+.seg button[aria-pressed="true"]{color:#000;background:var(--cyan);border-color:var(--cyan)}
+.seg.gold button[aria-pressed="true"]{background:var(--gold);border-color:var(--gold)}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.tries{display:flex;flex-direction:column;gap:6px}
+.tries button{text-align:left;font:400 13px/1.35 var(--sans);color:var(--ink-2);background:var(--panel-2);border:1px solid transparent;border-radius:10px;padding:9px 12px;cursor:pointer}
+.tries button:hover{border-color:var(--line-2);color:var(--ink)}
+.tries button span{color:var(--gold);font-family:var(--mono);font-size:11px;margin-right:6px}
+.note{font-size:12.5px;color:var(--ink-3);margin:0}
+
+/* phone */
+.phone{position:relative;border-radius:44px;padding:11px;background:linear-gradient(160deg,#1b1b22,#08080b);border:1px solid var(--line-2);box-shadow:0 40px 90px -30px rgba(0,240,255,.18),0 30px 60px -30px rgba(0,0,0,.9);transform:perspective(1400px) rotateY(var(--ry,0deg)) rotateX(var(--rx,0deg));transition:transform .6s var(--ease)}
+.screen{border-radius:34px;overflow:hidden;height:640px;display:flex;flex-direction:column;background:var(--sbg)}
+.notch{position:absolute;top:19px;left:50%;transform:translateX(-50%);width:96px;height:24px;border-radius:14px;background:#000;z-index:3}
+.phone[data-ch="wa"]{--sbg:#0b141a;--shead:#1f2c34;--bme:#005c4b;--bbot:#202c33;--meink:#e9edef}
+.phone[data-ch="ig"]{--sbg:#000;--shead:#000;--bme:linear-gradient(135deg,#7a3cff,#3b6bff);--bbot:#262626;--meink:#fff}
+.shead{background:var(--shead);padding:44px 14px 11px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+.av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:600 14px var(--sans);color:#000;background:linear-gradient(135deg,var(--gold-hi),var(--gold));flex:none}
+.phone[data-ch="ig"] .av{box-shadow:0 0 0 2px #000,0 0 0 4px #e1306c}
+.who{min-width:0;flex:1}.who b{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who small{color:#8696a0;font-size:12px}
+.phone[data-ch="ig"] .who small{color:#a8a8a8}
+.reset{background:none;border:1px solid rgba(255,255,255,.18);color:var(--ink-2);border-radius:8px;font:500 11px var(--mono);padding:5px 8px;cursor:pointer}
+#log{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:6px;scroll-behavior:smooth}
+.phone[data-ch="wa"] #log{background-image:radial-gradient(rgba(255,255,255,.025) 1px,transparent 1px);background-size:14px 14px}
+.m{max-width:82%;padding:8px 11px 6px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.42;animation:pop .35s var(--ease) both}
+.m .t{display:block;text-align:right;font-size:10.5px;opacity:.55;margin-top:2px}
+.me{align-self:flex-end;background:var(--bme);color:var(--meink);border-bottom-right-radius:4px}
+.bot{align-self:flex-start;background:var(--bbot);color:#e9edef;border-bottom-left-radius:4px}
+.phone[data-ch="ig"] .m{border-radius:20px;padding:9px 14px}
+.phone[data-ch="ig"] .m .t{display:none}
+.m.photo{padding:4px;background:var(--bme)}
+.m.photo .ph{width:170px;height:150px;border-radius:9px;display:grid;place-items:center;font:500 12px var(--mono);color:rgba(255,255,255,.85);text-align:center;padding:10px}
+.typing{display:flex;gap:4px;padding:12px 14px}
+.typing i{width:6px;height:6px;border-radius:50%;background:#8696a0;animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+.order{border:1px solid var(--gold);background:linear-gradient(180deg,rgba(212,175,55,.12),rgba(212,175,55,.04));border-radius:14px;padding:12px;align-self:stretch;max-width:100%;animation:pop .45s var(--ease) both}
+.order h4{margin:0 0 6px;font:500 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--gold-hi)}
+.order dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0 0 10px;font-size:13px}
+.order dt{color:var(--ink-3)}.order dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.order dd.tot{color:var(--gold-hi);font-weight:600}
+.wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#25d366;color:#04210f;font:600 13.5px var(--sans);border-radius:10px;padding:10px;text-decoration:none}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:6px 10px 0;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;font:500 12.5px var(--sans);color:var(--cyan);background:var(--cyan-soft);border:1px solid rgba(0,240,255,.25);border-radius:999px;padding:6px 11px;cursor:pointer}
+form.comp{display:flex;gap:8px;padding:8px 10px 14px;align-items:center}
+.att{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--bbot);border:0;color:var(--ink-2);cursor:pointer;font-size:16px}
+#msg{flex:1;min-width:0;background:var(--bbot);border:0;border-radius:22px;padding:11px 15px;color:#e9edef;font:14px var(--sans)}
+.phone[data-ch="ig"] #msg{background:transparent;border:1px solid #363636}
+#send{flex:none;width:40px;height:40px;border-radius:50%;border:0;background:#00a884;color:#fff;cursor:pointer;display:grid;place-items:center}
+.phone[data-ch="ig"] #send{background:#3b6bff}
+.cap{text-align:center;color:var(--ink-3);font:400 12px var(--mono);margin-top:14px}
+
+/* admin */
+.adm{padding:18px;display:flex;flex-direction:column;gap:16px}
+.adm-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.adm-h b{font:500 22px/1 var(--serif)}
+.live{display:inline-flex;align-items:center;gap:6px;font:500 10.5px var(--mono);letter-spacing:.12em;color:var(--ok)}
+.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);animation:blink 1.6s infinite}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{background:var(--panel-2);border-radius:12px;padding:10px}
+.kpi small{display:block;font:500 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.kpi span{font:500 20px/1.2 var(--sans);font-variant-numeric:tabular-nums}
+.lead{border:1px solid var(--line-2);border-radius:14px;padding:14px}
+.lead-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+.lead-top b{font-weight:600}
+.pill{font:500 10.5px var(--mono);letter-spacing:.06em;padding:4px 9px;border-radius:999px;background:var(--panel-2);color:var(--ink-2);white-space:nowrap}
+.pill.q{background:var(--cyan-soft);color:var(--cyan)}.pill.r{background:var(--gold-soft);color:var(--gold-hi)}.pill.h{background:rgba(255,181,71,.15);color:var(--warn)}
+.fields{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13.5px;margin:0}
+.fields dt{color:var(--ink-3);font:400 12px var(--mono)}
+.fields dd{margin:0;text-align:right;color:var(--ink-3);transition:color .3s}
+.fields dd.on{color:var(--ink)}
+.fields dd.flash{animation:flash 1.1s var(--ease)}
+.evt{font:400 11.5px/1.6 var(--mono);color:var(--ink-2);max-height:150px;overflow-y:auto;background:rgba(0,0,0,.35);border-radius:10px;padding:10px 12px;margin:0;list-style:none}
+.evt li{display:flex;gap:10px}.evt time{color:var(--ink-3);flex:none}
+.evt .c{color:var(--cyan)}.evt .g{color:var(--gold-hi)}.evt .w{color:var(--warn)}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{text-align:left;font:500 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);padding:0 0 6px}
+.tbl td{padding:7px 0;border-top:1px solid var(--line);color:var(--ink-2)}
+.tbl tr.me-row td{color:var(--ink)}
+.tbl td:last-child,.tbl th:last-child{text-align:right}
+.sub{font:500 10.5px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin:0 0 8px}
+
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes blink{0%,100%{opacity:.35}50%{opacity:1}}
+@keyframes flash{0%{color:var(--cyan);text-shadow:0 0 12px var(--cyan)}100%{text-shadow:none}}
+/* embed mode (?embed=1): inside the site's modal iframe */
+body.embed{padding-block:16px 20px;background:var(--obsidian)}
+body.embed canvas#dust,body.embed .col-pitch .eyebrow,body.embed .col-pitch h1,body.embed .col-pitch .lede,body.embed .cap{display:none}
+body.embed .wrap{gap:20px}
+body.embed .screen{height:min(600px,calc(100vh - 60px))}
+@media (max-width:760px){body.embed .screen{height:min(560px,72vh)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.phone{transform:none}canvas#dust{display:none}}
+@media (max-width:1100px){.wrap{grid-template-columns:minmax(0,1fr) 380px}.col-admin{grid-column:1/-1}}
+@media (max-width:760px){.wrap{grid-template-columns:minmax(0,1fr)}.col-phone{order:-1}.col-pitch{order:0}.screen{height:min(620px,78vh)}.phone{transform:none}}
+@media (max-width:420px){.phone{border-radius:34px;padding:7px}.screen{border-radius:28px}}
+</style>
+</head>
+<body>
+
+<canvas id="dust" aria-hidden="true"></canvas>
+<main class="wrap">
+  <section class="col-pitch">
+    <div class="eyebrow">Live demo · AI sales assistant</div>
+    <h1>Talk to the bot your customers <em>will</em> talk to.</h1>
+    <p class="lede">This is the same assistant we install on Instagram and WhatsApp. Ask about a product, pick a size, leave your details, and watch the order land in the owner's panel on the right.</p>
+    <div class="glass ctl">
+      <div><label class="k" id="lbl-biz">Business</label>
+        <div class="seg" role="group" aria-labelledby="lbl-biz" id="biz"></div></div>
+      <div><label class="k" id="lbl-ch">Channel</label>
+        <div class="seg gold" role="group" aria-labelledby="lbl-ch" id="ch">
+          <button type="button" data-v="wa" aria-pressed="true">WhatsApp</button>
+          <button type="button" data-v="ig" aria-pressed="false">Instagram DM</button></div></div>
+      <div><label class="k" id="lbl-lang">Language</label>
+        <div class="seg" role="group" aria-labelledby="lbl-lang" id="lang">
+          <button type="button" data-v="en" aria-pressed="true">English</button>
+          <button type="button" data-v="sq" aria-pressed="false">Shqip</button></div></div>
+      <div><label class="k">Try saying</label><div class="tries" id="tries"></div></div>
+      <p class="note">Demo mode: replies come from a scripted engine running in your browser, so nothing you type is sent anywhere. The installed bot uses Claude with the business's real catalogue.</p>
+    </div>
+  </section>
+
+  <section class="col-phone">
+    <div class="phone" id="phone" data-ch="wa">
+      <div class="notch"></div>
+      <div class="screen">
+        <div class="shead">
+          <div class="av" id="av">B</div>
+          <div class="who"><b id="bizname">Boutique Tirana</b><small id="status">online</small></div>
+          <button type="button" class="reset" id="reset">Restart</button>
+        </div>
+        <div id="log" aria-live="polite"></div>
+        <div class="chips" id="chips"></div>
+        <form class="comp" id="comp">
+          <button type="button" class="att" id="photo" title="Send a sample photo" aria-label="Send a sample photo">📷</button>
+          <input id="msg" type="text" autocomplete="off" placeholder="Message" aria-label="Message">
+          <button id="send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-6l8-2.5-8-2.5v-6l19 8.5z"/></svg></button>
+        </form>
+      </div>
+    </div>
+    <p class="cap">Replies in about a second, 24/7</p>
+  </section>
+
+  <section class="col-admin">
+    <div class="glass adm">
+      <div class="adm-h"><b>Owner's panel</b><span class="live">LIVE</span></div>
+      <div class="kpis">
+        <div class="kpi"><small>Messages</small><span id="k-msg">0</span></div>
+        <div class="kpi"><small>Reply time</small><span id="k-rt">–</span></div>
+        <div class="kpi"><small>Stage</small><span id="k-st">New</span></div>
+      </div>
+      <div class="lead">
+        <div class="lead-top"><b>This conversation</b><span class="pill" id="pill">New chat</span></div>
+        <dl class="fields" id="fields"></dl>
+      </div>
+      <div><p class="sub">What the bot understood</p><ul class="evt" id="evt"></ul></div>
+      <div><p class="sub">Today's leads</p>
+        <table class="tbl"><thead><tr><th>Customer</th><th>Interest</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table>
+        <p class="note" style="margin-top:8px">The two rows under yours are sample data.</p></div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ===== catalogues (boutique data mirrors CHAT Ai/inventory.json) ===== */
+const BIZ = {
+  boutique:{ name:'Boutique Tirana', init:'B', label:{en:'Fashion boutique',sq:'Butik veshjesh'}, cur:'Lekë', ship:{tirane:200,rrethe:300},
+    slots:['product','size','color','name','city','phone'],
+    products:[
+      {id:'dress', en:'Elegant Dress', sq:'Fustan Elegant', price:3500, sizes:['S','M','L'], colors:[['black','e zezë'],['red','e kuqe']], kw:['dress','fustan','fustani','gown']},
+      {id:'shirt', en:'Classic Shirt', sq:'Këmishë Klasike', price:2200, sizes:['XS','S','M','L'], colors:[['white','e bardhë'],['sky blue','bojëqielli']], kw:['shirt','blouse','kemish','kemisha','bluze']},
+      {id:'coat', en:'Winter Coat', sq:'Pallto Dimërore', price:7500, sizes:['M','L','XL'], colors:[['camel','kamel'],['black','e zezë']], kw:['coat','jacket','pallto','xhaket']},
+      {id:'trousers', en:'Suit Trousers', sq:'Pantallona Kostumi', price:2800, sizes:['S','M','L','XL'], colors:[['grey','gri'],['navy','blu e errët']], kw:['trouser','pants','pantallon']}
+    ],
+    tries:{en:['Do you have the dress in XL?','How much is the winter coat?','Can I pay by card?','I want a discount'],
+           sq:['A e keni fustanin në XL?','Sa kushton pallto?','A mund të paguaj me kartë?','Dua një zbritje']}},
+  clinic:{ name:'Elite Dental Tirana', init:'E', label:{en:'Dental clinic',sq:'Klinikë dentare'}, cur:'€',
+    slots:['product','day','name','phone'],
+    products:[
+      {id:'consult', en:'Free consultation + X-ray', sq:'Konsultë + Panorameks falas', price:0, kw:['consult','check','x-ray','konsult','vizit','panoram']},
+      {id:'whitening', en:'Laser whitening', sq:'Zbardhim me laser', price:100, kw:['whiten','white','yellow','zbardh','verdh']},
+      {id:'veneers', en:'E-Max veneers', sq:'Faseta E-Max', price:180, priceNote:{en:'per tooth',sq:'për dhëmb'}, kw:['veneer','smile','faset','buzeqesh']},
+      {id:'implant', en:'Dental implant', sq:'Implant dentar', price:350, kw:['implant','missing','mungon','humba']}
+    ],
+    tries:{en:['My teeth are yellow, what can you do?','How much is an implant?','Do you take payments in instalments?','Can I speak to a doctor?'],
+           sq:['Kam dhëmbët e verdhë, çfarë më rekomandoni?','Sa kushton një implant?','A pranoni pagesë me këste?','Dua të flas me mjekun']}},
+  agency:{ name:'Mariol Digital', init:'M', label:{en:'This studio',sq:'Ky studio'}, cur:'€',
+    slots:['product','business','name','phone'],
+    products:[
+      {id:'bot', en:'AI sales agent for Instagram/WhatsApp', sq:'Agjent AI për Instagram/WhatsApp', price:150, priceNote:{en:'setup + €50/month',sq:'instalim + 50€/muaj'}, kw:['bot','agent','chat','dm','instagram','whatsapp','automat','reply','pergjigj']},
+      {id:'site', en:'Business website', sq:'Website biznesi', price:250, priceNote:{en:'from, ready in 5-7 days',sq:'nga, gati në 5-7 ditë'}, kw:['website','site','landing','faqe','web']},
+      {id:'shop', en:'Online shop', sq:'Dyqan online', price:500, priceNote:{en:'from, ready in 10-14 days',sq:'nga, gati në 10-14 ditë'}, kw:['shop','store','ecommerce','e-commerce','dyqan','online']},
+      {id:'qr', en:'QR/NFC table-ordering app', sq:'App porosie me QR/NFC', price:0, priceNote:{en:'quoted per venue',sq:'oferta sipas lokalit'}, kw:['qr','nfc','restaurant','menu','table','restorant','kafe','bar']}
+    ],
+    tries:{en:['I need a bot for my Instagram shop','How much is a website?','Do you build QR menus for restaurants?','How long does it take?'],
+           sq:['Dua një bot për dyqanin në Instagram','Sa kushton një website?','A bëni menu me QR për restorante?','Sa kohë zgjat?']}}
+};
+const CITIES = ['tirane','tirana','durres','vlore','vlora','shkoder','elbasan','korce','fier','berat','lushnje','kavaje','sarande','pogradec','kukes','lezhe','prishtine','prishtina','prizren','peje'];
+const DAYS = {en:['monday','tuesday','wednesday','thursday','friday','saturday','tomorrow','today'], sq:['e hene','e marte','e merkure','e enjte','e premte','e shtune','neser','sot']};
+const DAY_ALIASES = {hene:0,marte:1,merkure:2,enjte:3,premte:4,shtune:5,neser:6,sot:7};
+
+/* ===== state ===== */
+const S = { biz:'boutique', ch:'wa', lang:'en', langLocked:false, slots:{}, done:false, handoff:false, msgs:0, rt:[] };
+const $ = (id) => document.getElementById(id);
+const norm = (s) => String(s||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase();
+const fmt = (n) => n.toLocaleString('en-US');
+const L = (en, sq) => S.lang === 'sq' ? sq : en;
+const now = () => new Date().toTimeString().slice(0,5);
+const B = () => BIZ[S.biz];
+const pname = (p) => p[S.lang];
+const priceStr = (p) => { const b=B(); if (!p.price) return p.priceNote ? p.priceNote[S.lang] : L('free','falas'); const v = b.cur==='€' ? `€${fmt(p.price)}` : `${fmt(p.price)} ${b.cur}`; return p.priceNote ? (S.biz==='agency' && p.priceNote.en.startsWith('from') ? `${L('from','nga')} ${v}, ${p.priceNote[S.lang].replace(/^(from|nga),?\s*/,'')}` : `${v} ${p.priceNote[S.lang]}`) : v; };
+
+/* ===== language detection ===== */
+const SQ_WORDS = ['pershendetje','pershendet','dua','sa kushton','kushton','une','jam','faleminderit','masa','ngjyra','keni','kemi','mund','me ','cfare','sot','neser','quhem','emri','pagesa','posta','dhembet','nje ','eshte','ju lutem','kam ','mire','po ','jo ','zbritje','kush','te ','per ','sa '];
+function detectLang(raw){ const t=' '+norm(raw)+' '; let sq=0; for (const w of SQ_WORDS) if (t.includes(' '+w)) sq++; if (sq>=2) return 'sq'; if (/\b(the|you|do|how|much|have|want|need|can|what|my|is|i'm|hello|hi)\b/i.test(raw)) return 'en'; return null; }
+
+/* ===== parsing ===== */
+function findProduct(t){ let best=null,score=0; for (const p of B().products){ let s=0; for (const k of p.kw) if (t.includes(k)) s+=k.length; if (norm(p.en).split(' ').some(w=>w.length>3&&t.includes(w))) s+=2; if (s>score){score=s;best=p;} } return best; }
+function findSize(raw){ const m = String(raw).match(/(?:^|[\s,.(:\/])(XXL|XL|XS|S|M|L)(?=$|[\s,.!?):\/])/i); return m ? m[1].toUpperCase() : null; }
+function findColor(t,p){ if(!p||!p.colors) return null; for (const c of p.colors) for (const a of c) if (t.includes(norm(a))) return c; const short = {zeze:'black',kuqe:'red',bardhe:'white',blue:'sky blue',blu:'navy'}; for (const k in short) if (t.includes(k)){ const c=p.colors.find(c=>c[0]===short[k]||norm(c[1]).includes(k)); if(c) return c; } return null; }
+function findPhone(raw){ const m=String(raw).match(/(\+?\d[\d\s-]{7,15}\d)/); if(!m) return null; const d=m[1].replace(/\D/g,''); return d.length>=9&&d.length<=14 ? m[1].trim() : null; }
+function findCity(t){ for (const c of CITIES) if (new RegExp('\\b'+c+'\\b').test(t)){ const base={tirana:'tirane',vlora:'vlore',prishtina:'prishtine'}[c]||c; const pretty={tirane:'Tiranë',durres:'Durrës',vlore:'Vlorë',shkoder:'Shkodër',korce:'Korçë',lushnje:'Lushnjë',kavaje:'Kavajë',sarande:'Sarandë',kukes:'Kukës',lezhe:'Lezhë',prishtine:'Prishtinë',peje:'Pejë'}[base]; return pretty || base[0].toUpperCase()+base.slice(1); } return null; }
+function findDay(t){ for (let i=0;i<DAYS.en.length;i++) if (t.includes(DAYS.en[i])) return i; for (const k in DAY_ALIASES) if (t.includes(k)) return DAY_ALIASES[k]; return null; }
+function findName(raw, expecting){ const m = String(raw).match(/(?:my name is|i'm|i am|this is|name:|emri im (?:eshte|është)|emri:|quhem|jam)\s+([A-ZÇË][a-zçë]+(?:\s+[A-ZÇË][a-zçë]+)?)/i); if (m && !CITIES.includes(norm(m[1]))) return cap(m[1]);
+  if (expecting){ const first = String(raw).replace(/\+?\d[\d\s-]{6,}\d/g,' ').split(/[,\n]/)[0].trim().replace(/\s+/g,' '); if (/^[A-Za-zÇËçë]+(\s+[A-Za-zÇËçë]+)?$/.test(first) && !CITIES.includes(norm(first)) && first.length<30 && !findProduct(norm(first))) return cap(first); } return null; }
+const cap = (s) => s.split(/\s+/).map(w=>w[0].toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+const has = (t,...ws) => ws.some(w=>t.includes(w));
+
+/* ===== engine ===== */
+function nextSlot(){ return B().slots.find(k=>!S.slots[k]); }
+function ask(slot){
+  const p = S.slots.product, b=B();
+  switch(slot){
+    case 'product': return S.biz==='boutique' ? L(`What are you looking for? We have ${list(b.products)}.`, `Çfarë po kërkoni? Kemi ${list(b.products)}.`)
+      : S.biz==='clinic' ? L('Tell me what bothers you about your teeth, or send a photo of your smile and I will point you to the right treatment.','Më tregoni çfarë ju shqetëson te dhëmbët, ose dërgoni një foto të buzëqeshjes dhe ju orientoj menjëherë.')
+      : L('What kind of business do you run, and where do most customers reach you: Instagram, WhatsApp or a website?','Çfarë biznesi keni dhe ku ju shkruajnë më shumë klientët: Instagram, WhatsApp apo website?');
+    case 'size': return L(`Which size would you like? In stock: ${p.sizes.join(', ')}.`, `Cilën masë dëshironi? Në gjendje: ${p.sizes.join(', ')}.`);
+    case 'color': return L(`And which colour: ${p.colors.map(c=>c[0]).join(' or ')}?`, `Dhe cilën ngjyrë: ${p.colors.map(c=>c[1]).join(' apo ')}?`);
+    case 'name': case 'city': case 'phone': {
+      const miss = b.slots.filter(k=>['name','city','phone'].includes(k)&&!S.slots[k]);
+      const w = {name:L('your full name','emrin e plotë'), city:L('your city','qytetin'), phone:L(S.biz==='agency'?'your WhatsApp number':'your phone number', S.biz==='agency'?'numrin e WhatsApp':'numrin e telefonit')};
+      const parts = miss.map(k=>w[k]); const joined = parts.length>1 ? parts.slice(0,-1).join(', ')+L(' and ',' dhe ')+parts.at(-1) : parts[0];
+      if (S.biz==='clinic') return L(`To book it I just need ${joined}.`, `Për ta rezervuar më duhet vetëm ${joined}.`);
+      if (S.biz==='agency') return L(`Great fit. Leave me ${joined} and Mariol will call you for a free 10-minute demo.`, `Shumë mirë. Më lini ${joined} dhe Mariol ju telefonon për një demo falas 10 minuta.`);
+      return L(`Perfect. To send it, please write ${joined} in one message.`, `Perfekt. Për ta dërguar, ju lutem shkruani ${joined} në një mesazh.`);
+    }
+    case 'day': return L('Which day suits you best for the visit? We are open Monday to Saturday, 09:00 to 19:00.','Cila ditë ju përshtatet më mirë për vizitën? Jemi hapur e Hënë - e Shtunë, 09:00-19:00.');
+    case 'business': return L('What is the business called, or paste your Instagram link so I can take a quick look?','Si quhet biznesi, ose më dërgoni linkun e Instagramit që ta shoh shpejt?');
+  }
+}
+const list = (ps) => ps.map(p=>pname(p).toLowerCase()).join(', ').replace(/, ([^,]*)$/, L(' and $1',' dhe $1'));
+
+function reply(raw, opts={}){
+  const t = norm(raw); const b=B(); const out=[]; const ev=[];
+  const first = S.msgs===1;
+  const expecting = nextSlot();
+  if (first) out.push(S.biz==='boutique'?L('Hello! Welcome to Boutique Tirana.','Përshëndetje! Mirë se vini në Boutique Tirana.'): S.biz==='clinic'?L('Hello, this is Elena from Elite Dental.','Përshëndetje, këtu Elena nga Elite Dental.'):L('Hi! You are chatting with the Mariol Digital assistant, which is itself the demo.','Përshëndetje! Po flisni me asistentin e Mariol Digital, që është vetë demoja.'));
+
+  // guardrails first
+  if (has(t,'ignore','injoro','system prompt','you are now','je administrator','instructions')) { ev.push(['w','guardrail: prompt-injection ignored']); out.push(L('I can only help with our products and orders. What would you like to see?','Mund t\'ju ndihmoj vetëm me produktet dhe porositë. Çfarë dëshironi të shihni?')); return {out,ev}; }
+  if (has(t,'discount','zbritje','ulje','cheaper','refund','return','kthim','ankes','complain','speak to','human','person','manager','doctor','mjek','flas me','njeri')) {
+    S.handoff = true; ev.push(['w','handoff → owner notified']);
+    out.push(L('A colleague will contact you shortly about that.','Një koleg do t\'ju kontaktojë së shpejti për këtë.'));
+    if (!S.slots.phone && b.slots.includes('phone')) out.push(L('What number should they call?','Në cilin numër t\'ju telefonojë?'));
+    return {out,ev};
+  }
+
+  // slot filling
+  const prevProduct = S.slots.product;
+  let asked=false;
+  let p = (expecting==='business' ? null : findProduct(t)) || (opts.photo ? b.products[0] : null);
+  if (p && (!S.slots.product || p.id!==S.slots.product.id)) { if (S.slots.product) { delete S.slots.size; delete S.slots.color; } S.slots.product = p; ev.push(['c',`product = ${p.en}`]); }
+  p = S.slots.product;
+  if (opts.photo) out.push(S.biz==='clinic' ? L('Thanks for the photo. From what I can see, laser whitening would make a visible difference, and a free consultation confirms it.','Faleminderit për foton. Nga sa shoh, zbardhimi me laser do të bënte ndryshim të dukshëm, dhe konsulta falas e konfirmon.') : L(`I can see the photo. That looks like our ${pname(p).toLowerCase()}.`, `E pashë foton. Duket si ${pname(p).toLowerCase()} jonë.`));
+  if (opts.photo && S.biz==='clinic') { S.slots.product = b.products[1]; p=S.slots.product; ev.push(['c','photo matched → Laser whitening']); }
+  else if (opts.photo) ev.push(['c',`photo matched → ${p.en}`]);
+
+  if (p && p.sizes){ const sz = findSize(raw); if (sz){ if (p.sizes.includes(sz)) { S.slots.size = sz; ev.push(['c',`size = ${sz}`]); } else { ev.push(['w',`size ${sz} not in stock`]); out.push(L(`Sorry, the ${pname(p).toLowerCase()} doesn't come in ${sz}. We have ${p.sizes.join(', ')}. Which one would you like?`, `Na vjen keq, ${pname(p).toLowerCase()} nuk e kemi në ${sz}. Kemi ${p.sizes.join(', ')}. Cilën dëshironi?`)); asked=true; } } }
+  if (p && p.colors){ const c = findColor(t,p); if (c){ S.slots.color = c; ev.push(['c',`colour = ${c[0]}`]); } }
+  if (b.slots.includes('day')){ const d=findDay(t); if (d!==null){ S.slots.day = {en:['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Tomorrow','Today'][d], sq:['e Hënë','e Martë','e Mërkurë','e Enjte','e Premte','e Shtunë','Nesër','Sot'][d]}; ev.push(['c',`day = ${S.slots.day.en}`]); } }
+  const ph=findPhone(raw); if (ph){ S.slots.phone=ph; ev.push(['g',`phone = ${ph}`]); }
+  if (b.slots.includes('city')){ const c=findCity(t); if (c){ S.slots.city=c; ev.push(['c',`city = ${c}`]); } }
+  const nm=findName(raw, ['name','city','phone'].includes(expecting) && !ph ? true : ['name','city','phone'].includes(expecting)); if (nm && !S.slots.name){ S.slots.name=nm; ev.push(['g',`name = ${nm}`]); }
+  if (expecting==='business' && !S.slots.business && raw.length>1 && !ph && !nm){ S.slots.business = raw.trim().slice(0,40); ev.push(['c',`business = ${S.slots.business}`]); }
+  else if (expecting==='business' && /instagram\.com|https?:\/\//.test(t)){ S.slots.business = raw.trim().slice(0,40); }
+
+  // informational intents
+  if (has(t,'card','kart','paypal','online pay','transfer','bank')) { ev.push(['c','intent: payment']); out.push(S.biz==='boutique'?L('We only take cash to the courier on delivery, no card or online payment.','Pagesa bëhet vetëm në dorë te postieri, pa kartë apo pagesë online.'):S.biz==='clinic'?L('Cash or card at the clinic, and instalments are available for implants and veneers.','Cash ose kartë në klinikë, dhe ka mundësi pagese me këste për implante dhe faseta.'):L('50% upfront, 50% on delivery, with a proper invoice.','50% paradhënie, 50% në dorëzim, me faturë.')); }
+  if (has(t,'instal','keste')) { if (S.biz!=='clinic') out.push(L('Payment is split 50/50, so you never pay everything upfront.','Pagesa ndahet 50/50, nuk paguani gjithçka përpara.')); }
+  if (has(t,'ship','deliver','post','dergese','dergesa','posta','transport','how long','sa kohe','sa vonon','zgjat','ready')) { ev.push(['c','intent: delivery']); out.push(S.biz==='boutique'?L(`Delivery takes 24-48 hours: ${b.ship.tirane} Lekë in Tirana, ${b.ship.rrethe} Lekë elsewhere.`,`Dërgesa brenda 24-48 orësh: ${b.ship.tirane} Lekë në Tiranë, ${b.ship.rrethe} Lekë në rrethe.`):S.biz==='agency'?L('An AI agent goes live in 2-3 days, a website in 5-7, an online shop in 10-14.','Agjenti AI del live për 2-3 ditë, website për 5-7, dyqani online për 10-14.'):L('Most treatments start within the same week.','Shumica e trajtimeve nisin brenda javës.')); }
+  const asksPrice = has(t,'how much','price','cost','sa kushton','cmim','sa eshte','sa ben','kushton');
+  if (p && (p!==prevProduct || asksPrice) && !opts.photo) { out.push(S.biz==='boutique' ? L(`The ${pname(p).toLowerCase()} is ${priceStr(p)}, in ${p.colors.map(c=>c[0]).join(' and ')}, sizes ${p.sizes.join(', ')}.`, `${pname(p)} kushton ${priceStr(p)}, ngjyrat ${p.colors.map(c=>c[1]).join(' dhe ')}, masat ${p.sizes.join(', ')}.`) : `${pname(p)}: ${priceStr(p)}.`); ev.push(['c','intent: price']); }
+  else if (opts.photo && p && S.biz==='boutique') out.push(L(`It's ${priceStr(p)}, in stock in ${p.sizes.join(', ')}.`, `Kushton ${priceStr(p)}, në gjendje në ${p.sizes.join(', ')}.`));
+  else if (!p && asksPrice) out.push(L(`Here are our prices: ${b.products.map(x=>pname(x)+' '+priceStr(x)).join('; ')}.`, `Çmimet tona: ${b.products.map(x=>pname(x)+' '+priceStr(x)).join('; ')}.`));
+  if (S.biz==='agency' && p && p!==prevProduct) out.push(p.id==='bot'?L('It answers DMs 24/7, reads photos and links, and saves every order to your panel, like this chat is doing now.','U përgjigjet DM-ve 24/7, lexon foto dhe linqe, dhe ruan çdo porosi në panel, siç po bën kjo bisedë tani.'):p.id==='qr'?L('Guests scan the table, order from their phone, and the kitchen sees it instantly.','Klientët skanojnë tavolinën, porosisin nga telefoni dhe kuzhina e sheh menjëherë.'):'');
+
+  // completion or next question
+  const nxt = nextSlot();
+  if (!nxt){ S.done=true; ev.push(['g', S.biz==='boutique'?'order complete → saved':'booking complete → saved']); out.push(summaryText()); return {out:out.filter(Boolean),ev,order:true}; }
+  const q = ask(nxt);
+  if (!asked) out.push(q);
+  return {out:out.filter(Boolean),ev};
+}
+
+function totals(){ const b=B(), p=S.slots.product; if (S.biz!=='boutique') return null; const inT = norm(S.slots.city).includes('tiran'); const ship = inT?b.ship.tirane:b.ship.rrethe; return {ship, total:p.price+ship}; }
+function summaryText(){ return S.biz==='boutique' ? L('Thank you! Here is your order. The courier will call before delivery.','Faleminderit! Ja porosia juaj. Postieri ju telefonon para dorëzimit.') : S.biz==='clinic' ? L('You are booked in. We will confirm the exact time on WhatsApp.','U rezervuat. Orën e saktë jua konfirmojmë në WhatsApp.') : L('Done. Mariol will message you today to set up the demo.','U krye. Mariol ju shkruan sot për të lënë demon.'); }
+
+/* ===== rendering ===== */
+const log = $('log');
+function bubble(cls, text){ const d=document.createElement('div'); d.className='m '+cls; d.textContent=text; const tm=document.createElement('span'); tm.className='t'; tm.textContent=now()+(cls==='me'&&S.ch==='wa'?' ✓✓':''); d.appendChild(tm); log.appendChild(d); log.scrollTop=log.scrollHeight; return d; }
+function orderCard(){
+  const b=B(), s=S.slots, p=s.product, tt=totals();
+  const rows = S.biz==='boutique' ? [[L('Item','Produkti'),pname(p)],[L('Size','Masa'),s.size],[L('Colour','Ngjyra'),S.lang==='sq'?s.color[1]:s.color[0]],[L('Name','Emri'),s.name],[L('City','Qyteti'),s.city],[L('Phone','Tel.'),s.phone],[L('Price','Çmimi'),fmt(p.price)+' Lekë'],[L('Delivery','Posta'),fmt(tt.ship)+' Lekë'],[L('Total, cash on delivery','Totali, në dorë'),fmt(tt.total)+' Lekë']]
+    : S.biz==='clinic' ? [[L('Treatment','Trajtimi'),pname(p)],[L('Day','Dita'),s.day[S.lang]],[L('Name','Emri'),s.name],[L('Phone','Tel.'),s.phone],[L('Price','Çmimi'),priceStr(p)]]
+    : [[L('Interested in','Interes'),pname(p)],[L('Business','Biznesi'),s.business],[L('Name','Emri'),s.name],[L('WhatsApp','WhatsApp'),s.phone],[L('Starting price','Çmimi'),priceStr(p)]];
+  const msg = rows.map(r=>`${r[0]}: ${r[1]}`).join('\n');
+  const d=document.createElement('div'); d.className='order';
+  d.innerHTML=`<h4>${S.biz==='boutique'?L('Order summary','Përmbledhja'):L('Booking','Rezervimi')}</h4><dl></dl><a class="wa-btn" target="_blank" rel="noopener"></a>`;
+  const dl=d.querySelector('dl'); rows.forEach((r,i)=>{ const dt=document.createElement('dt'); dt.textContent=r[0]; const dd=document.createElement('dd'); dd.textContent=r[1]; if (i===rows.length-1&&S.biz==='boutique') dd.className='tot'; dl.append(dt,dd); });
+  const a=d.querySelector('a'); a.href='https://wa.me/355697200543?text='+encodeURIComponent(`${b.name}\n${msg}`); a.textContent=L('Confirm on WhatsApp','Konfirmo në WhatsApp');
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function typing(){ const d=document.createElement('div'); d.className='m bot typing'; d.innerHTML='<i></i><i></i><i></i>'; log.appendChild(d); log.scrollTop=log.scrollHeight; return d; }
+let busy=false;
+let queue=Promise.resolve(), epoch=0;
+function send(raw, opts={}){ const e=epoch; queue=queue.then(()=> e===epoch ? sendNow(raw,opts) : null).catch(()=>{}); return queue; }
+async function sendNow(raw, opts={}){
+  if (S.done) { restartHint(); return; }
+  raw = String(raw||'').trim(); if (!raw && !opts.photo) return;
+  if (!S.langLocked){ const lg=detectLang(raw); if (lg && lg!==S.lang) setLang(lg,false); }
+  if (opts.photo){ const d=document.createElement('div'); d.className='m me photo'; d.innerHTML=`<div class="ph" style="background:${S.biz==='clinic'?'linear-gradient(160deg,#e9dcc0,#b8a27a)':'linear-gradient(160deg,#3a0d12,#8f1d2c)'}">${S.biz==='clinic'?L('smile photo','foto buzëqeshje'):L('photo: red dress','foto: fustan i kuq')}</div>`; log.appendChild(d); }
+  else bubble('me', raw);
+  S.msgs++; busy=true; $('status').textContent=L('typing…','duke shkruar…');
+  const started=performance.now();
+  const r = reply(raw, opts);
+  r.ev.forEach(e=>logEvt(e[0],e[1]));
+  const tp=typing();
+  await wait(650+Math.min(900, r.out.join(' ').length*6));
+  tp.remove();
+  for (let i=0;i<r.out.length;i++){ bubble('bot', r.out[i]); if (i<r.out.length-1) await wait(380); }
+  if (r.order) { await wait(300); orderCard(); }
+  S.rt.push((performance.now()-started)/1000); busy=false; $('status').textContent='online';
+  renderAdmin(); renderChips();
+}
+function restartHint(){ if (log.lastElementChild?.dataset.hint) return; const d=bubble('bot',L('This demo order is complete. Tap Restart to try another business or flow.','Kjo porosi demo përfundoi. Shtypni Restart për të provuar një biznes tjetër.')); d.dataset.hint='1'; }
+const wait = (ms) => new Promise(r=>setTimeout(r, matchMedia('(prefers-reduced-motion: reduce)').matches?0:ms));
+
+/* ===== admin ===== */
+function logEvt(cls, text){ const li=document.createElement('li'); li.innerHTML=`<time>${now()}</time><span class="${cls}"></span>`; li.lastChild.textContent=text; $('evt').appendChild(li); $('evt').scrollTop=$('evt').scrollHeight; }
+let lastVals={};
+function renderAdmin(){
+  const b=B(), s=S.slots;
+  const labels={product:L('Interest','Interesi'),size:L('Size','Masa'),color:L('Colour','Ngjyra'),name:L('Name','Emri'),city:L('City','Qyteti'),phone:L('Phone','Telefoni'),day:L('Day','Dita'),business:L('Business','Biznesi')};
+  const val=(k)=>{ const v=s[k]; if(!v) return ''; if(k==='product') return pname(v); if(k==='color') return S.lang==='sq'?v[1]:v[0]; if(k==='day') return v[S.lang]; return v; };
+  const dl=$('fields'); dl.innerHTML='';
+  for (const k of b.slots){ const dt=document.createElement('dt'); dt.textContent=labels[k]; const dd=document.createElement('dd'); const v=val(k); dd.textContent=v||'—'; if(v){dd.className='on'; if(lastVals[k]!==v) dd.classList.add('flash');} lastVals[k]=v; dl.append(dt,dd); }
+  if (S.biz==='boutique' && s.product && s.city){ const tt=totals(); const dt=document.createElement('dt'); dt.textContent=L('Total','Totali'); const dd=document.createElement('dd'); dd.className='on'; dd.textContent=fmt(tt.total)+' Lekë'; dl.append(dt,dd); }
+  const filled=b.slots.filter(k=>s[k]).length;
+  const [st,cls] = S.done?[S.biz==='boutique'?L('Order ready','Porosi gati'):L('Booked','Rezervuar'),'r']: S.handoff?[L('Needs you','Kërkon ju'),'h']: filled?[L('Qualifying','Në proces'),'q']:[L('New chat','Bisedë e re'),''];
+  $('pill').textContent=st; $('pill').className='pill '+cls;
+  $('k-msg').textContent=S.msgs*2; $('k-rt').textContent=S.rt.length?(S.rt.reduce((a,b)=>a+b,0)/S.rt.length).toFixed(1)+'s':'–';
+  $('k-st').textContent=`${filled}/${b.slots.length}`;
+  const sample = S.biz==='boutique'?[['Arta K.','Winter Coat · L','Delivered'],['Blerina H.','Classic Shirt · S','Confirmed']]:S.biz==='clinic'?[['Dritan M.','Implant','Booked Tue'],['Sara L.','Whitening','New']]:[['Kafe Roma','QR ordering','Demo call'],['Studio Nova','Website','Quote sent']];
+  const you=[s.name||L('You (live)','Ju (live)'), s.product?pname(s.product)+(s.size?' · '+s.size:''):'—', st];
+  $('rows').innerHTML=''; [you,...sample].forEach((r,i)=>{ const tr=document.createElement('tr'); if(!i) tr.className='me-row'; r.forEach(c=>{const td=document.createElement('td'); td.textContent=c; tr.appendChild(td);}); $('rows').appendChild(tr); });
+}
+
+/* ===== controls ===== */
+function renderBiz(){ const g=$('biz'); g.innerHTML=''; for (const k in BIZ){ const bt=document.createElement('button'); bt.type='button'; bt.dataset.v=k; bt.textContent=BIZ[k].label[S.lang]; bt.setAttribute('aria-pressed', String(k===S.biz)); bt.onclick=()=>{ S.biz=k; restart(); }; g.appendChild(bt);} }
+function renderTries(){ const g=$('tries'); g.innerHTML=''; B().tries[S.lang].forEach((x,i)=>{ const bt=document.createElement('button'); bt.type='button'; bt.innerHTML=`<span>0${i+1}</span>`; bt.append(x); bt.onclick=()=>send(x); g.appendChild(bt); }); }
+function renderChips(){
+  const g=$('chips'); g.innerHTML=''; if (S.done) return;
+  const n=nextSlot(), p=S.slots.product; let c=[];
+  if (n==='product') c=B().products.map(pname);
+  else if (n==='size') c=p.sizes; else if (n==='color') c=p.colors.map(x=>S.lang==='sq'?x[1]:x[0]);
+  else if (n==='day') c=S.lang==='sq'?['E Martë','E Enjte','Nesër']:['Tuesday','Thursday','Tomorrow'];
+  else if (['name','city','phone'].includes(n)) c=[S.biz==='boutique'?'Ana Hoxha, Tiranë, 069 123 4567':'Ana Hoxha, 069 123 4567'];
+  else if (n==='business') c=S.lang==='sq'?['Dyqan veshjesh në Instagram','Restorant në Durrës']:['Clothing shop on Instagram','Restaurant in Durrës'];
+  c.forEach(x=>{ const bt=document.createElement('button'); bt.type='button'; bt.textContent=x; bt.onclick=()=>send(x); g.appendChild(bt); });
+}
+function setLang(l, lock=true){ S.lang=l; if(lock) S.langLocked=true; document.querySelectorAll('#lang button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===l))); $('msg').placeholder=L('Message','Mesazh'); renderBiz(); renderTries(); renderChips(); renderAdmin(); }
+function restart(){ epoch++; S.slots={}; S.done=false; S.handoff=false; S.msgs=0; S.rt=[]; lastVals={}; busy=false; log.innerHTML=''; $('evt').innerHTML=''; const b=B(); $('bizname').textContent=b.name; $('av').textContent=b.init; renderBiz(); renderTries(); renderChips(); renderAdmin(); logEvt('c',`chat opened · ${S.ch==='wa'?'WhatsApp':'Instagram'} · ${b.name}`); }
+$('ch').addEventListener('click',e=>{ const v=e.target.dataset?.v; if(!v) return; S.ch=v; $('phone').dataset.ch=v; document.querySelectorAll('#ch button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===v))); logEvt('c',`channel → ${v==='wa'?'WhatsApp':'Instagram'}`); });
+$('lang').addEventListener('click',e=>{ const v=e.target.dataset?.v; if(v) setLang(v); });
+$('reset').onclick=restart;
+$('photo').onclick=()=>send('', {photo:true});
+$('comp').addEventListener('submit',e=>{ e.preventDefault(); const v=$('msg').value; $('msg').value=''; send(v); });
+
+/* subtle tilt + dust */
+const phone=$('phone');
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches && matchMedia('(min-width:761px)').matches){
+  addEventListener('pointermove',e=>{ const r=phone.getBoundingClientRect(); const x=(e.clientX-(r.left+r.width/2))/innerWidth, y=(e.clientY-(r.top+r.height/2))/innerHeight; phone.style.setProperty('--ry',(x*8).toFixed(2)+'deg'); phone.style.setProperty('--rx',(-y*6).toFixed(2)+'deg'); });
+  const cv=$('dust'), cx=cv.getContext('2d'); let W,H,pts=[];
+  const size=()=>{ W=cv.width=innerWidth*devicePixelRatio; H=cv.height=innerHeight*devicePixelRatio; pts=Array.from({length:70},()=>({x:Math.random()*W,y:Math.random()*H,r:(Math.random()*1.4+.3)*devicePixelRatio,v:Math.random()*.25+.05,g:Math.random()<.3})); };
+  size(); addEventListener('resize',size);
+  (function tick(){ cx.clearRect(0,0,W,H); for(const p of pts){ p.y-=p.v; if(p.y<0){p.y=H;p.x=Math.random()*W;} cx.fillStyle=p.g?'rgba(212,175,55,.55)':'rgba(0,240,255,.45)'; cx.beginPath(); cx.arc(p.x,p.y,p.r,0,7); cx.fill(); } requestAnimationFrame(tick); })();
+}
+
+try{ if (new URLSearchParams(location.search).get('embed')==='1') document.body.classList.add('embed'); }catch(e){}
+restart();
+/* open in a working state: one sample exchange so the first frame shows the idea */
+setTimeout(()=>send('Hi, how much is the elegant dress?'), 400);
+</script>
+
+</body>
+</html>

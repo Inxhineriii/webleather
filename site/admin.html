@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin — mariol.digital</title>
+<style>
+  :root{--bg:#050505;--card:#0f0f10;--line:rgba(255,255,255,.1);--ink:#f2f2f2;--mut:rgba(255,255,255,.55);--gold:#d4af37;--neon:#00f0ff;--bad:#ff6b6b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}
+  header{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px 22px;background:rgba(5,5,5,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+  header h1{margin:0;font:600 15px 'Consolas',monospace;letter-spacing:.04em}
+  header h1 span{color:var(--gold)} header h1 b{color:var(--neon);font-weight:600}
+  .sp{flex:1}
+  button,.btn{font:600 13px system-ui;padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:#161617;color:var(--ink);cursor:pointer;text-decoration:none;display:inline-block}
+  button:hover,.btn:hover{border-color:var(--gold)}
+  .pri{background:linear-gradient(135deg,#f6e9b4,#d4af37 55%,#b58f25);color:#1a1405;border:0}
+  button:disabled{opacity:.4;cursor:default}
+  #status{font-size:13px;color:var(--mut)} #status.ok{color:#7dffb0} #status.dirty{color:var(--gold)} #status.err{color:var(--bad)}
+  main{max-width:980px;margin:0 auto;padding:24px 22px 120px}
+  #gate{max-width:560px;margin:12vh auto;text-align:center;padding:0 22px}
+  #gate h2{font-size:26px;margin:0 0 10px} #gate p{color:var(--mut)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin:0 0 22px}
+  section>h2{margin:0 0 4px;font-size:17px} section>p.sub{margin:0 0 18px;color:var(--mut);font-size:13px}
+  .field{display:block;margin:0 0 14px}
+  .field>span{display:block;font:600 11px 'Consolas',monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
+  .field small{display:block;color:var(--mut);font-size:12px;margin-top:4px}
+  input[type=text],textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#09090a;color:var(--ink);font:inherit}
+  textarea{resize:vertical;min-height:70px}
+  input:focus,textarea:focus{outline:none;border-color:var(--neon)}
+  .row{display:grid;gap:14px;grid-template-columns:1fr 1fr} @media(max-width:700px){.row{grid-template-columns:1fr}}
+  .item{border:1px solid var(--line);border-radius:14px;padding:16px;margin:0 0 16px;background:#0a0a0b}
+  .item-h{display:flex;align-items:center;gap:8px;margin:0 0 14px}
+  .item-h b{font:600 12px 'Consolas',monospace;color:var(--gold);letter-spacing:.1em;flex:1}
+  .item-h button{padding:6px 11px}
+  .imgbox{display:flex;gap:14px;align-items:flex-start;margin:0 0 14px}
+  .imgbox img{width:180px;aspect-ratio:4/3;object-fit:cover;object-position:top;border-radius:10px;border:1px solid var(--line);background:#000}
+  .imgbox div{flex:1}
+  .chk{display:flex;gap:8px;align-items:center;margin:0 0 14px;color:var(--mut)}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#161617;border:1px solid var(--gold);padding:12px 20px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .3s}
+  #toast.on{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>&lt;</span> Web <b>&amp;</b> AI <span>/&gt;</span> &nbsp;admin</h1>
+  <span id="status">Jo i lidhur</span>
+  <span class="sp"></span>
+  <a class="btn" href="index.html" target="_blank">Hap website-in</a>
+  <button id="btn-save" class="pri" disabled>Ruaj ndryshimet</button>
+</header>
+
+<div id="gate">
+  <h2>Paneli i përmbajtjes</h2>
+  <p>Zgjidh dosjen e projektit (<b>C:\MARIOL</b>). Ndryshimet ruhen direkt aty. Asgjë nuk dërgohet në internet.</p>
+  <p id="unsupported" style="color:var(--bad);display:none">Ky browser nuk lejon shkrimin në dosje. Përdor Chrome ose Edge.</p>
+  <button id="btn-open" class="pri">Zgjidh dosjen e projektit</button>
+</div>
+
+<main id="app" hidden></main>
+<div id="toast"></div>
+
+<script>
+(() => {
+  const $ = (s, c = document) => c.querySelector(s);
+  const statusEl = $('#status'), saveBtn = $('#btn-save'), app = $('#app'), gate = $('#gate'), toast = $('#toast');
+  let dir = null, data = null, dirty = false;
+  const urls = [];
+
+  if (!window.showDirectoryPicker) { $('#unsupported').style.display = 'block'; $('#btn-open').disabled = true; }
+
+  const say = (t, cls = '') => { statusEl.textContent = t; statusEl.className = cls; };
+  const flash = (t) => { toast.textContent = t; toast.classList.add('on'); setTimeout(() => toast.classList.remove('on'), 2200); };
+  const markDirty = () => { dirty = true; saveBtn.disabled = false; say('Ndryshime të paruajtura', 'dirty'); };
+
+  const h = (tag, attrs = {}, ...kids) => {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') el.className = v; else if (k.startsWith('on')) el.addEventListener(k.slice(2), v); else el.setAttribute(k, v);
+    }
+    kids.flat().forEach((c) => el.append(c && c.nodeType ? c : document.createTextNode(c == null ? '' : c)));
+    return el;
+  };
+
+  const field = (label, obj, key, opts = {}) => {
+    const ctl = opts.area
+      ? h('textarea', { rows: opts.rows || 3 })
+      : h('input', { type: 'text' });
+    const toStr = (v) => (opts.lines ? (v || []).join('\n') : (v == null ? '' : v));
+    ctl.value = toStr(obj[key]);
+    ctl.addEventListener('input', () => { obj[key] = opts.lines ? ctl.value.split('\n').map((s) => s.trim()).filter(Boolean) : ctl.value; markDirty(); });
+    return h('label', { class: 'field' }, h('span', {}, label), ctl, opts.hint ? h('small', {}, opts.hint) : '');
+  };
+
+  async function readFile(path) {
+    const parts = path.split('/');
+    let d = dir;
+    for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p);
+    return (await d.getFileHandle(parts.at(-1))).getFile();
+  }
+  async function writeFile(path, blobOrText) {
+    const parts = path.split('/');
+    let d = dir;
+    for (const p of parts.slice(0, -1)) d = await d.getDirectoryHandle(p, { create: true });
+    const fh = await d.getFileHandle(parts.at(-1), { create: true });
+    const w = await fh.createWritable();
+    await w.write(blobOrText);
+    await w.close();
+  }
+
+  async function shrink(file, maxW = 1280) {
+    const bmp = await createImageBitmap(file);
+    const s = Math.min(1, maxW / bmp.width);
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return new Promise((res) => c.toBlob(res, 'image/jpeg', 0.86));
+  }
+  const slug = (s) => (s || 'img').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'img';
+
+  async function previewSrc(path) {
+    try { const f = await readFile(path); const u = URL.createObjectURL(f); urls.push(u); return u; } catch (_) { return ''; }
+  }
+
+  function render() {
+    app.innerHTML = '';
+    const D = data;
+
+    app.append(h('section', {},
+      h('h2', {}, 'Të përgjithshme'),
+      h('p', { class: 'sub' }, 'Linku i Instagram-it dhe numri i WhatsApp-it për butonat.'),
+      field('Linku i Instagram DM', D.site, 'igUrl'),
+      field('Numri i WhatsApp', D.site, 'waNumber', { hint: 'Vetëm shifra, me 355 përpara, p.sh. 355697200543. Bosh = butonat hapin Instagram-in.' })));
+
+    app.append(h('section', {},
+      h('h2', {}, 'Hero'), h('p', { class: 'sub' }, 'Pjesa e parë e faqes.'),
+      field('Teksti nën titull', D.hero, 'lead', { area: true }),
+      field('Teksti i butonit të artë', D.hero, 'cta')));
+
+    app.append(h('section', {},
+      h('h2', {}, 'Seksionet 1 dhe 2'), h('p', { class: 'sub' }, 'Përdor *yll* rreth një fjale për ta bërë me ngjyrë, p.sh. Premium *Websites*.'),
+      h('div', { class: 'row' }, field('Seksioni 1: titulli', D.websites, 'title'), field('Seksioni 2: titulli', D.bots, 'title')),
+      h('div', { class: 'row' }, field('Seksioni 1: përshkrimi', D.websites, 'copy', { area: true }), field('Seksioni 2: përshkrimi', D.bots, 'copy', { area: true })),
+      field('Seksioni 1: 3 pikat (një për rresht)', D.websites, 'points', { area: true, lines: true, rows: 4 })));
+
+    // portfolio
+    const pf = h('section', {}, h('h2', {}, 'Portfolio'), h('p', { class: 'sub' }, 'Kartat me demot. Foto ngarkohet dhe zvogëlohet automatikisht.'),
+      field('Titulli', D.portfolio, 'title'), field('Përshkrimi', D.portfolio, 'copy', { area: true }));
+    const list = h('div');
+    const drawItems = () => {
+      list.innerHTML = '';
+      D.portfolio.items.forEach((it, i) => {
+        const img = h('img', { alt: '' });
+        previewSrc(it.img).then((u) => { if (u) img.src = u; });
+        const file = h('input', { type: 'file', accept: 'image/*' });
+        file.addEventListener('change', async () => {
+          const f = file.files[0]; if (!f) return;
+          try {
+            const blob = await shrink(f);
+            const path = `img/${slug(it.title)}-${Date.now().toString(36)}.jpg`;
+            await writeFile(path, blob);
+            it.img = path; const u = URL.createObjectURL(blob); urls.push(u); img.src = u;
+            markDirty(); flash('Foto u ngarkua');
+          } catch (e) { say('Gabim te foto: ' + e.message, 'err'); }
+        });
+        const move = (d) => () => { const j = i + d; if (j < 0 || j >= D.portfolio.items.length) return; const a = D.portfolio.items; [a[i], a[j]] = [a[j], a[i]]; markDirty(); drawItems(); };
+        list.append(h('div', { class: 'item' },
+          h('div', { class: 'item-h' }, h('b', {}, 'KARTA ' + String(i + 1).padStart(2, '0')),
+            h('button', { onclick: move(-1) }, '↑'), h('button', { onclick: move(1) }, '↓'),
+            h('button', { onclick: () => { if (confirm('Ta fshij këtë kartë?')) { D.portfolio.items.splice(i, 1); markDirty(); drawItems(); } } }, 'Fshi')),
+          h('div', { class: 'imgbox' }, img, h('div', {}, h('span', { class: 'field' }, h('span', {}, 'Foto (screenshot)')), file, h('small', { style: 'color:var(--mut);display:block;margin-top:6px' }, it.img))),
+          h('div', { class: 'row' }, field('Titulli', it, 'title'), field('Etiketa (p.sh. Live demo)', it, 'tag')),
+          field('Përshkrimi', it, 'desc', { area: true, rows: 2 }),
+          h('div', { class: 'row' }, field('Linku i demos', it, 'url'), field('Teksti i adresës në kornizë', it, 'host'))));
+      });
+    };
+    drawItems();
+    pf.append(list, h('button', { onclick: () => { D.portfolio.items.push({ title: 'New demo', desc: '', tag: 'Live demo', host: '', url: '', img: '' }); markDirty(); drawItems(); } }, '+ Shto kartë'));
+    app.append(pf);
+
+    // apps
+    app.append(h('section', {},
+      h('h2', {}, 'Aplikacionet (QR / NFC)'), h('p', { class: 'sub' }, 'Seksioni me telefonin interaktiv të restorantit.'),
+      field('Titulli', D.apps, 'title'), field('Përshkrimi', D.apps, 'copy', { area: true })));
+
+    // pricing
+    const pr = h('section', {}, h('h2', {}, 'Çmimet'), h('p', { class: 'sub' }, 'Tre planet me kornizë të artë.'),
+      field('Titulli', D.pricing, 'title'), field('Përshkrimi', D.pricing, 'copy', { area: true, rows: 2 }));
+    D.pricing.plans.forEach((p, i) => {
+      const chk = h('input', { type: 'checkbox' }); chk.checked = !!p.featured;
+      chk.addEventListener('change', () => { p.featured = chk.checked; markDirty(); });
+      pr.append(h('div', { class: 'item' }, h('div', { class: 'item-h' }, h('b', {}, 'PLANI ' + (i + 1))),
+        h('div', { class: 'row' }, field('Etiketa e vogël', p, 'label'), field('Emri i planit', p, 'name')),
+        h('div', { class: 'row' }, field('Çmimi', p, 'price'), field('Fjala para çmimit (from)', p, 'from')),
+        field('Përshkrim i shkurtër', p, 'note', { area: true, rows: 2 }),
+        field('Veçoritë (një për rresht)', p, 'features', { area: true, lines: true, rows: 6 }),
+        h('div', { class: 'row' }, field('Teksti i butonit', p, 'cta'), field('Shenja sipër (p.sh. Most popular)', p, 'badge')),
+        h('label', { class: 'chk' }, chk, 'Plani i veçuar (më i madh, me shenjë)')));
+    });
+    app.append(pr);
+
+    // quote builder
+    const qt = h('section', {}, h('h2', {}, 'Kalkulatori i ofertës'), h('p', { class: 'sub' }, 'Shërbimet dhe shtesat që klienti zgjedh. Çmimet në USD, vetëm numra.'),
+      field('Titulli', D.quote, 'title'), field('Përshkrimi', D.quote, 'copy', { area: true, rows: 2 }),
+      field('Shtesa për punë urgjente (%)', D.quote, 'rushPercent'));
+    const priceList = (title, arr, withDesc) => {
+      const box = h('div');
+      const draw = () => {
+        box.innerHTML = '';
+        arr.forEach((it, i) => box.append(h('div', { class: 'item' },
+          h('div', { class: 'item-h' }, h('b', {}, title + ' ' + (i + 1)),
+            h('button', { onclick: () => { if (confirm('Ta fshij?')) { arr.splice(i, 1); markDirty(); draw(); } } }, 'Fshi')),
+          h('div', { class: 'row' }, field('Emri', it, 'label'), field('Çmimi', it, 'price')),
+          withDesc ? field('Përshkrim i shkurtër', it, 'desc') : '')));
+      };
+      draw();
+      return [box, h('button', { onclick: () => { arr.push({ id: 'x' + Date.now().toString(36), label: 'E re', price: 0, desc: '' }); markDirty(); draw(); } }, '+ Shto')];
+    };
+    qt.append(h('h2', { style: 'margin-top:18px' }, 'Shërbimet'), ...priceList('SHËRBIMI', D.quote.services, true),
+      h('h2', { style: 'margin-top:22px' }, 'Shtesat'), ...priceList('SHTESA', D.quote.extras, false));
+    app.append(qt);
+  }
+
+  async function save() {
+    try {
+      say('Po ruhet...');
+      try { const old = await (await readFile('content.json')).text(); await writeFile('content.backup.json', old); } catch (_) {}
+      await writeFile('content.json', JSON.stringify(data, null, 2) + '\n');
+      dirty = false; saveBtn.disabled = true; say('U ruajt ✓ — rifresko website-in', 'ok'); flash('U ruajt');
+    } catch (e) { say('Gabim: ' + e.message, 'err'); }
+  }
+
+  $('#btn-open').addEventListener('click', async () => {
+    try {
+      dir = await showDirectoryPicker({ id: 'mariol', mode: 'readwrite' });
+      data = JSON.parse(await (await readFile('content.json')).text());
+      data.site = data.site || {}; data.hero = data.hero || {}; data.websites = data.websites || { points: [] }; data.bots = data.bots || {};
+      data.portfolio = data.portfolio || { items: [] }; data.pricing = data.pricing || { plans: [] };
+      data.apps = data.apps || {}; data.quote = data.quote || {};
+      data.quote.services = data.quote.services || []; data.quote.extras = data.quote.extras || [];
+      gate.hidden = true; app.hidden = false; render(); say('Lidhur me dosjen ✓', 'ok');
+    } catch (e) { say(e.name === 'AbortError' ? 'Anuluar' : 'Nuk gjeta content.json në këtë dosje', 'err'); }
+  });
+  saveBtn.addEventListener('click', save);
+  addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (!saveBtn.disabled) save(); } });
+  addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+})();
+</script>
+</body>
+</html>
