@@ -198,7 +198,19 @@ body.embed .screen{height:min(600px,calc(100vh - 60px))}
 <script>
 /* ===== catalogues (boutique data mirrors CHAT Ai/inventory.json) ===== */
 const BIZ = {
-  boutique:{ name:'Boutique Tirana', init:'B', label:{en:'Fashion boutique',sq:'Butik veshjesh'}, cur:'Lekë', ship:{tirane:200,rrethe:300},
+  sneakers:{ shop:true, name:'Urban Step Tirana', init:'U', label:{en:'Sneaker shop',sq:'Dyqan atletesh'}, cur:'Lekë', ship:{tirane:200,rrethe:300},
+    slots:['product','size','color','name','city','phone'], photo:{en:'photo: white sneakers',sq:'foto: atlete të bardha',bg:'linear-gradient(160deg,#e8e8e4,#9a9a96)'},
+    first:{en:'Hi, how much are the white leather sneakers?',sq:'Përshëndetje, sa kushtojnë atletet e bardha prej lëkure?'},
+    sample:[['Klajdi B.','Runner Pro · 43','Delivered'],['Elsa D.','High-Top Classic · 38','Confirmed']],
+    products:[
+      {id:'urban', en:'Urban Leather Sneakers', sq:'Atlete Urban Lëkure', price:4900, was:6500, sizes:['36','37','38','39','40','41','42','43','44'], colors:[['white','e bardhë'],['black','e zezë']], kw:['leather','urban','white sneaker','lekure','atlete te bardha','bardha']},
+      {id:'runner', en:'Runner Pro', sq:'Runner Pro', price:5800, sizes:['39','40','41','42','43','44','45'], colors:[['black','e zezë'],['grey','gri']], kw:['runner','running','vrapim','sport']},
+      {id:'hightop', en:'High-Top Classic', sq:'High-Top Klasike', price:5200, sizes:['36','37','38','39','40','41','42'], colors:[['white','e bardhë'],['red','e kuqe']], kw:['high-top','high top','hightop','te larta','boot','qafe']},
+      {id:'chunky', en:'Chunky Retro', sq:'Chunky Retro', price:6200, sizes:['37','38','39','40','41','42','43'], colors:[['beige','bezhë'],['white','e bardhë']], kw:['chunky','retro','platform','trasha']}
+    ],
+    tries:{en:['Do you have the Runner Pro in size 36?','How much are the chunky ones?','Can I pay by card?','Can I get a discount?'],
+           sq:['A e keni Runner Pro në numrin 36?','Sa kushtojnë chunky retro?','A mund të paguaj me kartë?','A ka ndonjë zbritje?']}},
+  boutique:{ shop:true, name:'Boutique Tirana', init:'B', label:{en:'Fashion boutique',sq:'Butik veshjesh'}, cur:'Lekë', ship:{tirane:200,rrethe:300},
     slots:['product','size','color','name','city','phone'],
     products:[
       {id:'dress', en:'Elegant Dress', sq:'Fustan Elegant', price:3500, sizes:['S','M','L'], colors:[['black','e zezë'],['red','e kuqe']], kw:['dress','fustan','fustani','gown']},
@@ -234,15 +246,16 @@ const DAYS = {en:['monday','tuesday','wednesday','thursday','friday','saturday',
 const DAY_ALIASES = {hene:0,marte:1,merkure:2,enjte:3,premte:4,shtune:5,neser:6,sot:7};
 
 /* ===== state ===== */
-const S = { biz:'boutique', ch:'wa', lang:'en', langLocked:false, slots:{}, done:false, handoff:false, msgs:0, rt:[] };
+const S = { biz:'sneakers', ch:'wa', lang:'en', langLocked:false, slots:{}, done:false, handoff:false, msgs:0, rt:[] };
 const $ = (id) => document.getElementById(id);
 const norm = (s) => String(s||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase();
 const fmt = (n) => n.toLocaleString('en-US');
 const L = (en, sq) => S.lang === 'sq' ? sq : en;
 const now = () => new Date().toTimeString().slice(0,5);
 const B = () => BIZ[S.biz];
+const isShop = () => !!BIZ[S.biz].shop;
 const pname = (p) => p[S.lang];
-const priceStr = (p) => { const b=B(); if (!p.price) return p.priceNote ? p.priceNote[S.lang] : L('free','falas'); const v = b.cur==='€' ? `€${fmt(p.price)}` : `${fmt(p.price)} ${b.cur}`; return p.priceNote ? (S.biz==='agency' && p.priceNote.en.startsWith('from') ? `${L('from','nga')} ${v}, ${p.priceNote[S.lang].replace(/^(from|nga),?\s*/,'')}` : `${v} ${p.priceNote[S.lang]}`) : v; };
+const priceStr = (p) => { const b=B(); if (p.was) return `${fmt(p.price)} ${b.cur} ${S.lang==='sq'?'me ofertë, ishte':'on offer, was'} ${fmt(p.was)}`; if (!p.price) return p.priceNote ? p.priceNote[S.lang] : L('free','falas'); const v = b.cur==='€' ? `€${fmt(p.price)}` : `${fmt(p.price)} ${b.cur}`; return p.priceNote ? (S.biz==='agency' && p.priceNote.en.startsWith('from') ? `${L('from','nga')} ${v}, ${p.priceNote[S.lang].replace(/^(from|nga),?\s*/,'')}` : `${v} ${p.priceNote[S.lang]}`) : v; };
 
 /* ===== language detection ===== */
 const SQ_WORDS = ['pershendetje','pershendet','dua','sa kushton','kushton','une','jam','faleminderit','masa','ngjyra','keni','kemi','mund','me ','cfare','sot','neser','quhem','emri','pagesa','posta','dhembet','nje ','eshte','ju lutem','kam ','mire','po ','jo ','zbritje','kush','te ','per ','sa '];
@@ -250,13 +263,13 @@ function detectLang(raw){ const t=' '+norm(raw)+' '; let sq=0; for (const w of S
 
 /* ===== parsing ===== */
 function findProduct(t){ let best=null,score=0; for (const p of B().products){ let s=0; for (const k of p.kw) if (t.includes(k)) s+=k.length; if (norm(p.en).split(' ').some(w=>w.length>3&&t.includes(w))) s+=2; if (s>score){score=s;best=p;} } return best; }
-function findSize(raw){ const m = String(raw).match(/(?:^|[\s,.(:\/])(XXL|XL|XS|S|M|L)(?=$|[\s,.!?):\/])/i); return m ? m[1].toUpperCase() : null; }
+function findSize(raw){ let r=String(raw); const ph=findPhone(r); if (ph) r=r.replace(ph,' '); const n = r.match(/(?:^|[^\d+])(3[4-9]|4[0-8])(?![\d])/); if (n) return n[1]; const m = r.match(/(?:^|[\s,.(:\/])(XXL|XL|XS|S|M|L)(?=$|[\s,.!?):\/])/i); return m ? m[1].toUpperCase() : null; }
 function findColor(t,p){ if(!p||!p.colors) return null; for (const c of p.colors) for (const a of c) if (t.includes(norm(a))) return c; const short = {zeze:'black',kuqe:'red',bardhe:'white',blue:'sky blue',blu:'navy'}; for (const k in short) if (t.includes(k)){ const c=p.colors.find(c=>c[0]===short[k]||norm(c[1]).includes(k)); if(c) return c; } return null; }
 function findPhone(raw){ const m=String(raw).match(/(\+?\d[\d\s-]{7,15}\d)/); if(!m) return null; const d=m[1].replace(/\D/g,''); return d.length>=9&&d.length<=14 ? m[1].trim() : null; }
 function findCity(t){ for (const c of CITIES) if (new RegExp('\\b'+c+'\\b').test(t)){ const base={tirana:'tirane',vlora:'vlore',prishtina:'prishtine'}[c]||c; const pretty={tirane:'Tiranë',durres:'Durrës',vlore:'Vlorë',shkoder:'Shkodër',korce:'Korçë',lushnje:'Lushnjë',kavaje:'Kavajë',sarande:'Sarandë',kukes:'Kukës',lezhe:'Lezhë',prishtine:'Prishtinë',peje:'Pejë'}[base]; return pretty || base[0].toUpperCase()+base.slice(1); } return null; }
 function findDay(t){ for (let i=0;i<DAYS.en.length;i++) if (t.includes(DAYS.en[i])) return i; for (const k in DAY_ALIASES) if (t.includes(k)) return DAY_ALIASES[k]; return null; }
 function findName(raw, expecting){ const m = String(raw).match(/(?:my name is|i'm|i am|this is|name:|emri im (?:eshte|është)|emri:|quhem|jam)\s+([A-ZÇË][a-zçë]+(?:\s+[A-ZÇË][a-zçë]+)?)/i); if (m && !CITIES.includes(norm(m[1]))) return cap(m[1]);
-  if (expecting){ const first = String(raw).replace(/\+?\d[\d\s-]{6,}\d/g,' ').split(/[,\n]/)[0].trim().replace(/\s+/g,' '); if (/^[A-Za-zÇËçë]+(\s+[A-Za-zÇËçë]+)?$/.test(first) && !CITIES.includes(norm(first)) && first.length<30 && !findProduct(norm(first))) return cap(first); } return null; }
+  if (expecting){ const first = String(raw).replace(/\+?\d[\d\s-]{6,}\d/g,' ').split(/[,\n]/)[0].trim().replace(/\s+/g,' '); if (/^[A-Za-zÇËçë]+\s+[A-Za-zÇËçë]+$/.test(first) && !CITIES.includes(norm(first)) && first.length<30 && !findProduct(norm(first))) return cap(first); } return null; }
 const cap = (s) => s.split(/\s+/).map(w=>w[0].toUpperCase()+w.slice(1).toLowerCase()).join(' ');
 const has = (t,...ws) => ws.some(w=>t.includes(w));
 
@@ -265,10 +278,10 @@ function nextSlot(){ return B().slots.find(k=>!S.slots[k]); }
 function ask(slot){
   const p = S.slots.product, b=B();
   switch(slot){
-    case 'product': return S.biz==='boutique' ? L(`What are you looking for? We have ${list(b.products)}.`, `Çfarë po kërkoni? Kemi ${list(b.products)}.`)
+    case 'product': return isShop() ? L(`What are you looking for? We have ${list(b.products)}.`, `Çfarë po kërkoni? Kemi ${list(b.products)}.`)
       : S.biz==='clinic' ? L('Tell me what bothers you about your teeth, or send a photo of your smile and I will point you to the right treatment.','Më tregoni çfarë ju shqetëson te dhëmbët, ose dërgoni një foto të buzëqeshjes dhe ju orientoj menjëherë.')
       : L('What kind of business do you run, and where do most customers reach you: Instagram, WhatsApp or a website?','Çfarë biznesi keni dhe ku ju shkruajnë më shumë klientët: Instagram, WhatsApp apo website?');
-    case 'size': return L(`Which size would you like? In stock: ${p.sizes.join(', ')}.`, `Cilën masë dëshironi? Në gjendje: ${p.sizes.join(', ')}.`);
+    case 'size': return L(`Which size would you like? In stock: ${p.sizes.join(', ')}.`, /^\d/.test(p.sizes[0]) ? `Cilin numër dëshironi? Në gjendje: ${p.sizes.join(', ')}.` : `Cilën masë dëshironi? Në gjendje: ${p.sizes.join(', ')}.`);
     case 'color': return L(`And which colour: ${p.colors.map(c=>c[0]).join(' or ')}?`, `Dhe cilën ngjyrë: ${p.colors.map(c=>c[1]).join(' apo ')}?`);
     case 'name': case 'city': case 'phone': {
       const miss = b.slots.filter(k=>['name','city','phone'].includes(k)&&!S.slots[k]);
@@ -288,7 +301,7 @@ function reply(raw, opts={}){
   const t = norm(raw); const b=B(); const out=[]; const ev=[];
   const first = S.msgs===1;
   const expecting = nextSlot();
-  if (first) out.push(S.biz==='boutique'?L('Hello! Welcome to Boutique Tirana.','Përshëndetje! Mirë se vini në Boutique Tirana.'): S.biz==='clinic'?L('Hello, this is Elena from Elite Dental.','Përshëndetje, këtu Elena nga Elite Dental.'):L('Hi! You are chatting with the Mariol Digital assistant, which is itself the demo.','Përshëndetje! Po flisni me asistentin e Mariol Digital, që është vetë demoja.'));
+  if (first) out.push(isShop()?L(`Hello! Welcome to ${b.name}.`,`Përshëndetje! Mirë se vini në ${b.name}.`): S.biz==='clinic'?L('Hello, this is Elena from Elite Dental.','Përshëndetje, këtu Elena nga Elite Dental.'):L('Hi! You are chatting with the Mariol Digital assistant, which is itself the demo.','Përshëndetje! Po flisni me asistentin e Mariol Digital, që është vetë demoja.'));
 
   // guardrails first
   if (has(t,'ignore','injoro','system prompt','you are now','je administrator','instructions')) { ev.push(['w','guardrail: prompt-injection ignored']); out.push(L('I can only help with our products and orders. What would you like to see?','Mund t\'ju ndihmoj vetëm me produktet dhe porositë. Çfarë dëshironi të shihni?')); return {out,ev}; }
@@ -305,11 +318,11 @@ function reply(raw, opts={}){
   let p = (expecting==='business' ? null : findProduct(t)) || (opts.photo ? b.products[0] : null);
   if (p && (!S.slots.product || p.id!==S.slots.product.id)) { if (S.slots.product) { delete S.slots.size; delete S.slots.color; } S.slots.product = p; ev.push(['c',`product = ${p.en}`]); }
   p = S.slots.product;
-  if (opts.photo) out.push(S.biz==='clinic' ? L('Thanks for the photo. From what I can see, laser whitening would make a visible difference, and a free consultation confirms it.','Faleminderit për foton. Nga sa shoh, zbardhimi me laser do të bënte ndryshim të dukshëm, dhe konsulta falas e konfirmon.') : L(`I can see the photo. That looks like our ${pname(p).toLowerCase()}.`, `E pashë foton. Duket si ${pname(p).toLowerCase()} jonë.`));
+  if (opts.photo) out.push(S.biz==='clinic' ? L('Thanks for the photo. From what I can see, laser whitening would make a visible difference, and a free consultation confirms it.','Faleminderit për foton. Nga sa shoh, zbardhimi me laser do të bënte ndryshim të dukshëm, dhe konsulta falas e konfirmon.') : L(`I can see the photo. That looks like our ${pname(p).toLowerCase()}.`, `E pashë foton. Duket si modeli ynë ${pname(p)}.`));
   if (opts.photo && S.biz==='clinic') { S.slots.product = b.products[1]; p=S.slots.product; ev.push(['c','photo matched → Laser whitening']); }
   else if (opts.photo) ev.push(['c',`photo matched → ${p.en}`]);
 
-  if (p && p.sizes){ const sz = findSize(raw); if (sz){ if (p.sizes.includes(sz)) { S.slots.size = sz; ev.push(['c',`size = ${sz}`]); } else { ev.push(['w',`size ${sz} not in stock`]); out.push(L(`Sorry, the ${pname(p).toLowerCase()} doesn't come in ${sz}. We have ${p.sizes.join(', ')}. Which one would you like?`, `Na vjen keq, ${pname(p).toLowerCase()} nuk e kemi në ${sz}. Kemi ${p.sizes.join(', ')}. Cilën dëshironi?`)); asked=true; } } }
+  if (p && p.sizes){ const sz = findSize(raw); if (sz){ if (p.sizes.includes(sz)) { S.slots.size = sz; ev.push(['c',`size = ${sz}`]); } else { ev.push(['w',`size ${sz} not in stock`]); out.push(L(`Sorry, we don't have the ${pname(p).toLowerCase()} in ${sz}. We have ${p.sizes.join(', ')}. Which one would you like?`, `Na vjen keq, ${pname(p).toLowerCase()} nuk e kemi në ${sz}. Kemi ${p.sizes.join(', ')}. Cilën dëshironi?`)); asked=true; } } }
   if (p && p.colors){ const c = findColor(t,p); if (c){ S.slots.color = c; ev.push(['c',`colour = ${c[0]}`]); } }
   if (b.slots.includes('day')){ const d=findDay(t); if (d!==null){ S.slots.day = {en:['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Tomorrow','Today'][d], sq:['e Hënë','e Martë','e Mërkurë','e Enjte','e Premte','e Shtunë','Nesër','Sot'][d]}; ev.push(['c',`day = ${S.slots.day.en}`]); } }
   const ph=findPhone(raw); if (ph){ S.slots.phone=ph; ev.push(['g',`phone = ${ph}`]); }
@@ -319,38 +332,38 @@ function reply(raw, opts={}){
   else if (expecting==='business' && /instagram\.com|https?:\/\//.test(t)){ S.slots.business = raw.trim().slice(0,40); }
 
   // informational intents
-  if (has(t,'card','kart','paypal','online pay','transfer','bank')) { ev.push(['c','intent: payment']); out.push(S.biz==='boutique'?L('We only take cash to the courier on delivery, no card or online payment.','Pagesa bëhet vetëm në dorë te postieri, pa kartë apo pagesë online.'):S.biz==='clinic'?L('Cash or card at the clinic, and instalments are available for implants and veneers.','Cash ose kartë në klinikë, dhe ka mundësi pagese me këste për implante dhe faseta.'):L('50% upfront, 50% on delivery, with a proper invoice.','50% paradhënie, 50% në dorëzim, me faturë.')); }
+  if (has(t,'card','kart','paypal','online pay','transfer','bank')) { ev.push(['c','intent: payment']); out.push(isShop()?L('We only take cash to the courier on delivery, no card or online payment.','Pagesa bëhet vetëm në dorë te postieri, pa kartë apo pagesë online.'):S.biz==='clinic'?L('Cash or card at the clinic, and instalments are available for implants and veneers.','Cash ose kartë në klinikë, dhe ka mundësi pagese me këste për implante dhe faseta.'):L('50% upfront, 50% on delivery, with a proper invoice.','50% paradhënie, 50% në dorëzim, me faturë.')); }
   if (has(t,'instal','keste')) { if (S.biz!=='clinic') out.push(L('Payment is split 50/50, so you never pay everything upfront.','Pagesa ndahet 50/50, nuk paguani gjithçka përpara.')); }
-  if (has(t,'ship','deliver','post','dergese','dergesa','posta','transport','how long','sa kohe','sa vonon','zgjat','ready')) { ev.push(['c','intent: delivery']); out.push(S.biz==='boutique'?L(`Delivery takes 24-48 hours: ${b.ship.tirane} Lekë in Tirana, ${b.ship.rrethe} Lekë elsewhere.`,`Dërgesa brenda 24-48 orësh: ${b.ship.tirane} Lekë në Tiranë, ${b.ship.rrethe} Lekë në rrethe.`):S.biz==='agency'?L('An AI agent goes live in 2-3 days, a website in 5-7, an online shop in 10-14.','Agjenti AI del live për 2-3 ditë, website për 5-7, dyqani online për 10-14.'):L('Most treatments start within the same week.','Shumica e trajtimeve nisin brenda javës.')); }
+  if (has(t,'ship','deliver','post','dergese','dergesa','posta','transport','how long','sa kohe','sa vonon','zgjat','ready')) { ev.push(['c','intent: delivery']); out.push(isShop()?L(`Delivery takes 24-48 hours: ${b.ship.tirane} Lekë in Tirana, ${b.ship.rrethe} Lekë elsewhere.`,`Dërgesa brenda 24-48 orësh: ${b.ship.tirane} Lekë në Tiranë, ${b.ship.rrethe} Lekë në rrethe.`):S.biz==='agency'?L('An AI agent goes live in 2-3 days, a website in 5-7, an online shop in 10-14.','Agjenti AI del live për 2-3 ditë, website për 5-7, dyqani online për 10-14.'):L('Most treatments start within the same week.','Shumica e trajtimeve nisin brenda javës.')); }
   const asksPrice = has(t,'how much','price','cost','sa kushton','cmim','sa eshte','sa ben','kushton');
-  if (p && (p!==prevProduct || asksPrice) && !opts.photo) { out.push(S.biz==='boutique' ? L(`The ${pname(p).toLowerCase()} is ${priceStr(p)}, in ${p.colors.map(c=>c[0]).join(' and ')}, sizes ${p.sizes.join(', ')}.`, `${pname(p)} kushton ${priceStr(p)}, ngjyrat ${p.colors.map(c=>c[1]).join(' dhe ')}, masat ${p.sizes.join(', ')}.`) : `${pname(p)}: ${priceStr(p)}.`); ev.push(['c','intent: price']); }
-  else if (opts.photo && p && S.biz==='boutique') out.push(L(`It's ${priceStr(p)}, in stock in ${p.sizes.join(', ')}.`, `Kushton ${priceStr(p)}, në gjendje në ${p.sizes.join(', ')}.`));
+  if (p && (p!==prevProduct || asksPrice) && !opts.photo) { out.push(isShop() ? L(`The ${pname(p).toLowerCase()} ${p.was?'are':'is'} ${priceStr(p)}, in ${p.colors.map(c=>c[0]).join(' and ')}, sizes ${p.sizes.join(', ')}.`, `${pname(p)} kushton ${priceStr(p)}, ngjyrat ${p.colors.map(c=>c[1]).join(' dhe ')}, masat ${p.sizes.join(', ')}.`) : `${pname(p)}: ${priceStr(p)}.`); ev.push(['c','intent: price']); }
+  else if (opts.photo && p && isShop()) out.push(L(`It's ${priceStr(p)}, in stock in ${p.sizes.join(', ')}.`, `Kushton ${priceStr(p)}, në gjendje në ${p.sizes.join(', ')}.`));
   else if (!p && asksPrice) out.push(L(`Here are our prices: ${b.products.map(x=>pname(x)+' '+priceStr(x)).join('; ')}.`, `Çmimet tona: ${b.products.map(x=>pname(x)+' '+priceStr(x)).join('; ')}.`));
   if (S.biz==='agency' && p && p!==prevProduct) out.push(p.id==='bot'?L('It answers DMs 24/7, reads photos and links, and saves every order to your panel, like this chat is doing now.','U përgjigjet DM-ve 24/7, lexon foto dhe linqe, dhe ruan çdo porosi në panel, siç po bën kjo bisedë tani.'):p.id==='qr'?L('Guests scan the table, order from their phone, and the kitchen sees it instantly.','Klientët skanojnë tavolinën, porosisin nga telefoni dhe kuzhina e sheh menjëherë.'):'');
 
   // completion or next question
   const nxt = nextSlot();
-  if (!nxt){ S.done=true; ev.push(['g', S.biz==='boutique'?'order complete → saved':'booking complete → saved']); out.push(summaryText()); return {out:out.filter(Boolean),ev,order:true}; }
+  if (!nxt){ S.done=true; ev.push(['g', isShop()?'order complete → saved':'booking complete → saved']); out.push(summaryText()); return {out:out.filter(Boolean),ev,order:true}; }
   const q = ask(nxt);
   if (!asked) out.push(q);
   return {out:out.filter(Boolean),ev};
 }
 
-function totals(){ const b=B(), p=S.slots.product; if (S.biz!=='boutique') return null; const inT = norm(S.slots.city).includes('tiran'); const ship = inT?b.ship.tirane:b.ship.rrethe; return {ship, total:p.price+ship}; }
-function summaryText(){ return S.biz==='boutique' ? L('Thank you! Here is your order. The courier will call before delivery.','Faleminderit! Ja porosia juaj. Postieri ju telefonon para dorëzimit.') : S.biz==='clinic' ? L('You are booked in. We will confirm the exact time on WhatsApp.','U rezervuat. Orën e saktë jua konfirmojmë në WhatsApp.') : L('Done. Mariol will message you today to set up the demo.','U krye. Mariol ju shkruan sot për të lënë demon.'); }
+function totals(){ const b=B(), p=S.slots.product; if (!isShop()) return null; const inT = norm(S.slots.city).includes('tiran'); const ship = inT?b.ship.tirane:b.ship.rrethe; return {ship, total:p.price+ship}; }
+function summaryText(){ return isShop() ? L('Thank you! Here is your order. The courier will call before delivery.','Faleminderit! Ja porosia juaj. Postieri ju telefonon para dorëzimit.') : S.biz==='clinic' ? L('You are booked in. We will confirm the exact time on WhatsApp.','U rezervuat. Orën e saktë jua konfirmojmë në WhatsApp.') : L('Done. Mariol will message you today to set up the demo.','U krye. Mariol ju shkruan sot për të lënë demon.'); }
 
 /* ===== rendering ===== */
 const log = $('log');
 function bubble(cls, text){ const d=document.createElement('div'); d.className='m '+cls; d.textContent=text; const tm=document.createElement('span'); tm.className='t'; tm.textContent=now()+(cls==='me'&&S.ch==='wa'?' ✓✓':''); d.appendChild(tm); log.appendChild(d); log.scrollTop=log.scrollHeight; return d; }
 function orderCard(){
   const b=B(), s=S.slots, p=s.product, tt=totals();
-  const rows = S.biz==='boutique' ? [[L('Item','Produkti'),pname(p)],[L('Size','Masa'),s.size],[L('Colour','Ngjyra'),S.lang==='sq'?s.color[1]:s.color[0]],[L('Name','Emri'),s.name],[L('City','Qyteti'),s.city],[L('Phone','Tel.'),s.phone],[L('Price','Çmimi'),fmt(p.price)+' Lekë'],[L('Delivery','Posta'),fmt(tt.ship)+' Lekë'],[L('Total, cash on delivery','Totali, në dorë'),fmt(tt.total)+' Lekë']]
+  const rows = isShop() ? [[L('Item','Produkti'),pname(p)],[L('Size','Masa'),s.size],[L('Colour','Ngjyra'),S.lang==='sq'?s.color[1]:s.color[0]],[L('Name','Emri'),s.name],[L('City','Qyteti'),s.city],[L('Phone','Tel.'),s.phone],[L('Price','Çmimi'),fmt(p.price)+' Lekë'],[L('Delivery','Posta'),fmt(tt.ship)+' Lekë'],[L('Total, cash on delivery','Totali, në dorë'),fmt(tt.total)+' Lekë']]
     : S.biz==='clinic' ? [[L('Treatment','Trajtimi'),pname(p)],[L('Day','Dita'),s.day[S.lang]],[L('Name','Emri'),s.name],[L('Phone','Tel.'),s.phone],[L('Price','Çmimi'),priceStr(p)]]
     : [[L('Interested in','Interes'),pname(p)],[L('Business','Biznesi'),s.business],[L('Name','Emri'),s.name],[L('WhatsApp','WhatsApp'),s.phone],[L('Starting price','Çmimi'),priceStr(p)]];
   const msg = rows.map(r=>`${r[0]}: ${r[1]}`).join('\n');
   const d=document.createElement('div'); d.className='order';
-  d.innerHTML=`<h4>${S.biz==='boutique'?L('Order summary','Përmbledhja'):L('Booking','Rezervimi')}</h4><dl></dl><a class="wa-btn" target="_blank" rel="noopener"></a>`;
-  const dl=d.querySelector('dl'); rows.forEach((r,i)=>{ const dt=document.createElement('dt'); dt.textContent=r[0]; const dd=document.createElement('dd'); dd.textContent=r[1]; if (i===rows.length-1&&S.biz==='boutique') dd.className='tot'; dl.append(dt,dd); });
+  d.innerHTML=`<h4>${isShop()?L('Order summary','Përmbledhja'):L('Booking','Rezervimi')}</h4><dl></dl><a class="wa-btn" target="_blank" rel="noopener"></a>`;
+  const dl=d.querySelector('dl'); rows.forEach((r,i)=>{ const dt=document.createElement('dt'); dt.textContent=r[0]; const dd=document.createElement('dd'); dd.textContent=r[1]; if (i===rows.length-1&&isShop()) dd.className='tot'; dl.append(dt,dd); });
   const a=d.querySelector('a'); a.href='https://wa.me/355697200543?text='+encodeURIComponent(`${b.name}\n${msg}`); a.textContent=L('Confirm on WhatsApp','Konfirmo në WhatsApp');
   log.appendChild(d); log.scrollTop=log.scrollHeight;
 }
@@ -362,7 +375,7 @@ async function sendNow(raw, opts={}){
   if (S.done) { restartHint(); return; }
   raw = String(raw||'').trim(); if (!raw && !opts.photo) return;
   if (!S.langLocked){ const lg=detectLang(raw); if (lg && lg!==S.lang) setLang(lg,false); }
-  if (opts.photo){ const d=document.createElement('div'); d.className='m me photo'; d.innerHTML=`<div class="ph" style="background:${S.biz==='clinic'?'linear-gradient(160deg,#e9dcc0,#b8a27a)':'linear-gradient(160deg,#3a0d12,#8f1d2c)'}">${S.biz==='clinic'?L('smile photo','foto buzëqeshje'):L('photo: red dress','foto: fustan i kuq')}</div>`; log.appendChild(d); }
+  if (opts.photo){ const d=document.createElement('div'); d.className='m me photo'; d.innerHTML=`<div class="ph" style="background:${B().photo?B().photo.bg:S.biz==='clinic'?'linear-gradient(160deg,#e9dcc0,#b8a27a)':'linear-gradient(160deg,#3a0d12,#8f1d2c)'}">${B().photo?B().photo[S.lang]:S.biz==='clinic'?L('smile photo','foto buzëqeshje'):L('photo: red dress','foto: fustan i kuq')}</div>`; log.appendChild(d); }
   else bubble('me', raw);
   S.msgs++; busy=true; $('status').textContent=L('typing…','duke shkruar…');
   const started=performance.now();
@@ -388,13 +401,13 @@ function renderAdmin(){
   const val=(k)=>{ const v=s[k]; if(!v) return ''; if(k==='product') return pname(v); if(k==='color') return S.lang==='sq'?v[1]:v[0]; if(k==='day') return v[S.lang]; return v; };
   const dl=$('fields'); dl.innerHTML='';
   for (const k of b.slots){ const dt=document.createElement('dt'); dt.textContent=labels[k]; const dd=document.createElement('dd'); const v=val(k); dd.textContent=v||'—'; if(v){dd.className='on'; if(lastVals[k]!==v) dd.classList.add('flash');} lastVals[k]=v; dl.append(dt,dd); }
-  if (S.biz==='boutique' && s.product && s.city){ const tt=totals(); const dt=document.createElement('dt'); dt.textContent=L('Total','Totali'); const dd=document.createElement('dd'); dd.className='on'; dd.textContent=fmt(tt.total)+' Lekë'; dl.append(dt,dd); }
+  if (isShop() && s.product && s.city){ const tt=totals(); const dt=document.createElement('dt'); dt.textContent=L('Total','Totali'); const dd=document.createElement('dd'); dd.className='on'; dd.textContent=fmt(tt.total)+' Lekë'; dl.append(dt,dd); }
   const filled=b.slots.filter(k=>s[k]).length;
-  const [st,cls] = S.done?[S.biz==='boutique'?L('Order ready','Porosi gati'):L('Booked','Rezervuar'),'r']: S.handoff?[L('Needs you','Kërkon ju'),'h']: filled?[L('Qualifying','Në proces'),'q']:[L('New chat','Bisedë e re'),''];
+  const [st,cls] = S.done?[isShop()?L('Order ready','Porosi gati'):L('Booked','Rezervuar'),'r']: S.handoff?[L('Needs you','Kërkon ju'),'h']: filled?[L('Qualifying','Në proces'),'q']:[L('New chat','Bisedë e re'),''];
   $('pill').textContent=st; $('pill').className='pill '+cls;
   $('k-msg').textContent=S.msgs*2; $('k-rt').textContent=S.rt.length?(S.rt.reduce((a,b)=>a+b,0)/S.rt.length).toFixed(1)+'s':'–';
   $('k-st').textContent=`${filled}/${b.slots.length}`;
-  const sample = S.biz==='boutique'?[['Arta K.','Winter Coat · L','Delivered'],['Blerina H.','Classic Shirt · S','Confirmed']]:S.biz==='clinic'?[['Dritan M.','Implant','Booked Tue'],['Sara L.','Whitening','New']]:[['Kafe Roma','QR ordering','Demo call'],['Studio Nova','Website','Quote sent']];
+  const sample = B().sample || (isShop()?[['Arta K.','Winter Coat · L','Delivered'],['Blerina H.','Classic Shirt · S','Confirmed']]:S.biz==='clinic'?[['Dritan M.','Implant','Booked Tue'],['Sara L.','Whitening','New']]:[['Kafe Roma','QR ordering','Demo call'],['Studio Nova','Website','Quote sent']]);
   const you=[s.name||L('You (live)','Ju (live)'), s.product?pname(s.product)+(s.size?' · '+s.size:''):'—', st];
   $('rows').innerHTML=''; [you,...sample].forEach((r,i)=>{ const tr=document.createElement('tr'); if(!i) tr.className='me-row'; r.forEach(c=>{const td=document.createElement('td'); td.textContent=c; tr.appendChild(td);}); $('rows').appendChild(tr); });
 }
@@ -408,7 +421,7 @@ function renderChips(){
   if (n==='product') c=B().products.map(pname);
   else if (n==='size') c=p.sizes; else if (n==='color') c=p.colors.map(x=>S.lang==='sq'?x[1]:x[0]);
   else if (n==='day') c=S.lang==='sq'?['E Martë','E Enjte','Nesër']:['Tuesday','Thursday','Tomorrow'];
-  else if (['name','city','phone'].includes(n)) c=[S.biz==='boutique'?'Ana Hoxha, Tiranë, 069 123 4567':'Ana Hoxha, 069 123 4567'];
+  else if (['name','city','phone'].includes(n)) c=[isShop()?'Ana Hoxha, Tiranë, 069 123 4567':'Ana Hoxha, 069 123 4567'];
   else if (n==='business') c=S.lang==='sq'?['Dyqan veshjesh në Instagram','Restorant në Durrës']:['Clothing shop on Instagram','Restaurant in Durrës'];
   c.forEach(x=>{ const bt=document.createElement('button'); bt.type='button'; bt.textContent=x; bt.onclick=()=>send(x); g.appendChild(bt); });
 }
@@ -433,7 +446,7 @@ if (!matchMedia('(prefers-reduced-motion: reduce)').matches && matchMedia('(min-
 try{ if (new URLSearchParams(location.search).get('embed')==='1') document.body.classList.add('embed'); }catch(e){}
 restart();
 /* open in a working state: one sample exchange so the first frame shows the idea */
-setTimeout(()=>send('Hi, how much is the elegant dress?'), 400);
+setTimeout(()=>send(B().first?B().first[S.lang]:'Hi, how much is the elegant dress?'), 400);
 </script>
 
 </body>
